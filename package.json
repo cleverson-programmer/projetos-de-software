@@ -1,0 +1,20 @@
+{
+  "name": "sistema-moeda-estudantil",
+  "version": "1.0.0",
+  "description": "Sistema de Moeda Estudantil - Laboratório de Projeto de Software (PUC Minas)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "db:init": "node database/build_sqlite_db.mjs",
+    "test:dao": "node src/dao/test_dao.js",
+    "start": "node src/server.js"
+  },
+  "keywords": [
+    "moeda-estudantil",
+    "mvc",
+    "dao",
+    "puc-minas"
+  ],
+  "license": "MIT"
+}
+
