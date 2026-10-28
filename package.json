@@ -8,6 +8,7 @@
     "db:init": "node database/build_sqlite_db.mjs",
     "professores:importar": "node database/importar_professores.mjs",
     "test:dao": "node src/dao/test_dao.js",
+    "test:servicos": "node src/services/test_servicos.js",
     "start": "node src/server.js"
   },
   "keywords": [
