@@ -121,27 +121,34 @@ export class EmpresaParceiraDAO {
   }
 
   /**
-   * Remove uma Empresa Parceira pelo ID (limpa resgates de vantagens vinculadas e exclui de `usuarios` com CASCADE).
+   * Indica se alguma vantagem da empresa já foi resgatada por um aluno.
+   * @param {number} id
+   * @returns {boolean}
+   */
+  possuiVantagemComResgate(id) {
+    const db = getDatabase();
+    const row = db
+      .prepare(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM resgates_vantagens r
+           INNER JOIN vantagens v ON v.id = r.vantagem_id
+           WHERE v.empresa_id = ?
+         ) AS possui`
+      )
+      .get(Number(id));
+    return Number(row.possui) === 1;
+  }
+
+  /**
+   * Remove uma Empresa Parceira pelo ID (exclui de `usuarios`, com CASCADE para suas vantagens).
+   * Não apaga transações: se alguma vantagem foi resgatada, a FK `ON DELETE RESTRICT` impede a exclusão.
    * @param {number} id
    * @returns {boolean}
    */
   delete(id) {
     const usuarioId = Number(id);
     return withTransaction((db) => {
-      const resgatesVinculados = db
-        .prepare(
-          `SELECT r.transacao_id AS id
-           FROM resgates_vantagens r
-           INNER JOIN vantagens v ON v.id = r.vantagem_id
-           WHERE v.empresa_id = ?`
-        )
-        .all(usuarioId);
-
-      const deleteTransacaoStmt = db.prepare('DELETE FROM transacoes WHERE id = ?');
-      for (const r of resgatesVinculados) {
-        deleteTransacaoStmt.run(r.id);
-      }
-
       const result = db
         .prepare("DELETE FROM usuarios WHERE id = ? AND tipo = 'EMPRESA'")
         .run(usuarioId);

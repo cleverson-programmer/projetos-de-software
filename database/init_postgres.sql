@@ -174,34 +174,34 @@ INSERT INTO instituicoes_ensino (id, nome, endereco) VALUES
 
 SELECT setval('instituicoes_ensino_id_seq', (SELECT MAX(id) FROM instituicoes_ensino));
 
--- 6.2 Usuários (Senha padrão de teste: "123456" em hash BCrypt)
+-- 6.2 Usuários (Senha padrão de teste: "123456" em hash PBKDF2-SHA256, 600000 iterações)
 INSERT INTO usuarios (id, nome, email, login, senha_hash, tipo) VALUES
     -- Professores pré-cadastrados
-    (1, 'Profa. Milena Menezes Adão', 'milena.adao@pucminas.br', 'milena.adao', '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', 'PROFESSOR'),
-    (2, 'Prof. Marco Rodrigo Costa', 'marco.costa@pucminas.br', 'marco.costa', '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', 'PROFESSOR'),
+    (1, 'Profa. Milena Menezes Adão', 'milena.adao@pucminas.br', 'milena.adao', 'pbkdf2$600000$4944336b2db3bcbc90bb2b3723fa94af$ca7fd99fe4a353c90ef01d23e3fa8c58f6aad0c561f7a6fa82d73727699ec62ccf1560f1cf965743aa8ac5ffb3d273b373feabcc28d21a18e5f3c11a2938086d', 'PROFESSOR'),
+    (2, 'Prof. Marco Rodrigo Costa', 'marco.costa@pucminas.br', 'marco.costa', 'pbkdf2$600000$4944336b2db3bcbc90bb2b3723fa94af$ca7fd99fe4a353c90ef01d23e3fa8c58f6aad0c561f7a6fa82d73727699ec62ccf1560f1cf965743aa8ac5ffb3d273b373feabcc28d21a18e5f3c11a2938086d', 'PROFESSOR'),
     -- Alunos
-    (3, 'Kaio Silva', 'kaio.silva@sga.pucminas.br', 'kaio.silva', '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', 'ALUNO'),
-    (4, 'Rafael Lopes de Souza', 'rafael.lopes@sga.pucminas.br', 'rafael.lopes', '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', 'ALUNO'),
+    (3, 'Kaio Silva', 'kaio.silva@sga.pucminas.br', 'kaio.silva', 'pbkdf2$600000$4944336b2db3bcbc90bb2b3723fa94af$ca7fd99fe4a353c90ef01d23e3fa8c58f6aad0c561f7a6fa82d73727699ec62ccf1560f1cf965743aa8ac5ffb3d273b373feabcc28d21a18e5f3c11a2938086d', 'ALUNO'),
+    (4, 'Rafael Lopes de Souza', 'rafael.lopes@sga.pucminas.br', 'rafael.lopes', 'pbkdf2$600000$4944336b2db3bcbc90bb2b3723fa94af$ca7fd99fe4a353c90ef01d23e3fa8c58f6aad0c561f7a6fa82d73727699ec62ccf1560f1cf965743aa8ac5ffb3d273b373feabcc28d21a18e5f3c11a2938086d', 'ALUNO'),
     -- Empresas Parceiras
-    (5, 'Cantina Universitária Gourmet', 'contato@cantinagourmet.com.br', 'cantina.gourmet', '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', 'EMPRESA'),
-    (6, 'Livraria & Papelaria TechBook', 'parceria@techbook.com.br', 'techbook', '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', 'EMPRESA');
+    (5, 'Cantina Universitária Gourmet', 'contato@cantinagourmet.com.br', 'cantina.gourmet', 'pbkdf2$600000$4944336b2db3bcbc90bb2b3723fa94af$ca7fd99fe4a353c90ef01d23e3fa8c58f6aad0c561f7a6fa82d73727699ec62ccf1560f1cf965743aa8ac5ffb3d273b373feabcc28d21a18e5f3c11a2938086d', 'EMPRESA'),
+    (6, 'Livraria & Papelaria TechBook', 'parceria@techbook.com.br', 'techbook', 'pbkdf2$600000$4944336b2db3bcbc90bb2b3723fa94af$ca7fd99fe4a353c90ef01d23e3fa8c58f6aad0c561f7a6fa82d73727699ec62ccf1560f1cf965743aa8ac5ffb3d273b373feabcc28d21a18e5f3c11a2938086d', 'EMPRESA');
 
 SELECT setval('usuarios_id_seq', (SELECT MAX(id) FROM usuarios));
 
 -- 6.3 Professores
 INSERT INTO professores (usuario_id, cpf, departamento, saldo_moedas, instituicao_id) VALUES
-    (1, '111.222.333-44', 'Engenharia de Software', 750, 1),
-    (2, '222.333.444-55', 'Ciência da Computação', 1000, 2);
+    (1, '529.982.247-25', 'Engenharia de Software', 750, 1),
+    (2, '111.444.777-35', 'Ciência da Computação', 1000, 2);
 
 -- 6.4 Alunos
 INSERT INTO alunos (usuario_id, cpf, rg, endereco, curso, saldo_moedas, instituicao_id) VALUES
-    (3, '333.444.555-66', 'MG-12.345.678', 'Rua Padre Eustáquio, 1200 - Belo Horizonte, MG', 'Engenharia de Software', 150, 1),
-    (4, '444.555.666-77', 'MG-87.654.321', 'Av. Contorno, 4500 - Belo Horizonte, MG', 'Engenharia de Software', 0, 1);
+    (3, '390.533.447-05', 'MG-12.345.678', 'Rua Padre Eustáquio, 1200 - Belo Horizonte, MG', 'Engenharia de Software', 150, 1),
+    (4, '123.456.789-09', 'MG-87.654.321', 'Av. Contorno, 4500 - Belo Horizonte, MG', 'Engenharia de Software', 0, 1);
 
 -- 6.5 Empresas Parceiras
 INSERT INTO empresas_parceiras (usuario_id, cnpj, descricao) VALUES
-    (5, '12.345.678/0001-90', 'Restaurante e lanchonete universitária com descontos especiais em refeições e lanches no campus.'),
-    (6, '98.765.432/0001-10', 'Livraria técnica, cursos online e materiais de informática e papelaria para estudantes.');
+    (5, '12.345.678/0001-95', 'Restaurante e lanchonete universitária com descontos especiais em refeições e lanches no campus.'),
+    (6, '11.222.333/0001-81', 'Livraria técnica, cursos online e materiais de informática e papelaria para estudantes.');
 
 -- 6.6 Vantagens
 INSERT INTO vantagens (id, empresa_id, nome, descricao, foto_url, custo_moedas, ativa) VALUES

@@ -5,9 +5,9 @@ export class AlunoController {
     this.service = service;
   }
 
-  listar(_req, res) {
-    const alunos = this.service.listarAlunos();
-    res.sendJson(200, alunos);
+  destinatarios(_req, res) {
+    const destinatarios = this.service.listarDestinatarios();
+    res.sendJson(200, destinatarios);
   }
 
   buscarPorId(_req, res, id) {

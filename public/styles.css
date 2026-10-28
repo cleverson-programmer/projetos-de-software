@@ -391,3 +391,374 @@ textarea:focus {
   color: #34d399;
 }
 
+
+/* ==========================================================================
+   Sprint 3: SPA por perfil (extensão do design system; sem estilos inline)
+   ========================================================================== */
+
+/* Acessibilidade: foco visível por teclado */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Cabeçalho do usuário */
+.topbar-user {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.topbar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.badge-perfil {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+/* Abas (role=tablist) */
+.tabs[role='tablist'] {
+  margin-bottom: 1.25rem;
+}
+
+.tab-btn[aria-selected='true'] {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* Toast de aviso (ex.: e-mail não enviado) */
+.toast.warning {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+/* Tela deslogada */
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Painéis internos */
+.app-painel > .card {
+  margin-bottom: 1.5rem;
+}
+
+.app-painel > .form-card,
+.app-painel > .perfil-card {
+  max-width: 760px;
+}
+
+.hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+
+.hint-alerta {
+  color: #fbbf24;
+}
+
+.helper-text + .btn {
+  margin-top: 0.25rem;
+}
+
+.saldo-linha {
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+}
+
+.saldo-linha strong {
+  color: #34d399;
+}
+
+.resultado-bloco {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.resultado-bloco:empty {
+  display: none;
+}
+
+.lista-simples {
+  margin: 0.5rem 0 0 1.1rem;
+}
+
+.dados-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.dados-lista dt {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.dados-lista dd {
+  margin: 0;
+}
+
+/* Estados vazio, carregando e erro */
+.estado-vazio,
+.estado-carregando {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2.25rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.estado-carregando {
+  border-style: solid;
+  animation: pulsar 1.2s ease-in-out infinite;
+}
+
+.estado-erro {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulsar {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .estado-carregando {
+    animation: none;
+  }
+}
+
+/* Extrato */
+.col-valor {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.valor {
+  font-weight: 700;
+}
+
+.valor-entrada {
+  color: #34d399;
+}
+
+.valor-saida {
+  color: #f87171;
+}
+
+code {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.codigo-inline {
+  color: #fbbf24;
+}
+
+/* Vantagens: cards com foto 16:9 */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.vantagem-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.vantagem-card > :not(.vantagem-media) {
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.vantagem-card > :last-child {
+  margin-bottom: 1rem;
+}
+
+.vantagem-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.vantagem-foto {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vantagem-media {
+  overflow: hidden;
+}
+
+#vantagem-form-area > .card {
+  max-width: 760px;
+  margin-bottom: 1.5rem;
+}
+
+.foto-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  background: repeating-linear-gradient(135deg, var(--bg), var(--bg) 10px, var(--surface) 10px, var(--surface) 20px);
+}
+
+.foto-fallback.hidden {
+  display: none;
+}
+
+.vantagem-corpo h3 {
+  font-size: 1rem;
+  margin-bottom: 0.1rem;
+}
+
+.vantagem-desc {
+  font-size: 0.86rem;
+  margin-top: 0.4rem;
+  overflow-wrap: anywhere;
+}
+
+.vantagem-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.vantagem-acoes {
+  flex-wrap: wrap;
+}
+
+.vantagem-inativa .vantagem-corpo,
+.vantagem-inativa .vantagem-media {
+  opacity: 0.6;
+}
+
+.badge-ativa {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-inativa {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text-muted);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+/* Resgate concluído: código do cupom em destaque */
+.resgate-sucesso {
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.resgate-sucesso h3 {
+  color: #34d399;
+  margin-bottom: 0.4rem;
+}
+
+.codigo-cupom {
+  display: inline-block;
+  margin: 0.4rem 0 0.8rem;
+  padding: 0.6rem 1rem;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fbbf24;
+  background: var(--bg);
+  border: 2px dashed rgba(245, 158, 11, 0.6);
+  border-radius: 8px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+/* Responsivo */
+@media (max-width: 720px) {
+  .topbar-inner {
+    align-items: flex-start;
+  }
+
+  .topbar-user {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .tabs[role='tablist'] {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+  }
+
+  .tab-btn {
+    white-space: nowrap;
+  }
+
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.55rem 0.4rem;
+  }
+
+  .codigo-cupom {
+    font-size: 1.05rem;
+  }
+}

@@ -131,27 +131,55 @@ export class AlunoDAO {
   }
 
   /**
-   * Remove um Aluno pelo ID (remove transações vinculadas se existirem e exclui de `usuarios` com CASCADE).
+   * Lista os alunos como destinatários de moedas (somente dados não sensíveis).
+   * @returns {{ id: number, nome: string, curso: string, instituicaoNome: string }[]}
+   */
+  findAllDestinatarios() {
+    const db = getDatabase();
+    const rows = db
+      .prepare(
+        `SELECT u.id, u.nome, a.curso, i.nome AS instituicao_nome
+         FROM alunos a
+         INNER JOIN usuarios u ON u.id = a.usuario_id
+         INNER JOIN instituicoes_ensino i ON i.id = a.instituicao_id
+         ORDER BY u.nome COLLATE NOCASE ASC, u.id ASC`
+      )
+      .all();
+    return rows.map((row) => ({
+      id: Number(row.id),
+      nome: row.nome,
+      curso: row.curso,
+      instituicaoNome: row.instituicao_nome,
+    }));
+  }
+
+  /**
+   * Indica se o aluno possui histórico (moedas recebidas de professores ou resgates).
+   * @param {number} id
+   * @returns {boolean}
+   */
+  possuiHistorico(id) {
+    const db = getDatabase();
+    const usuarioId = Number(id);
+    const row = db
+      .prepare(
+        `SELECT
+           EXISTS (SELECT 1 FROM transferencias_moedas WHERE aluno_id = ?) AS transferencias,
+           EXISTS (SELECT 1 FROM resgates_vantagens WHERE aluno_id = ?) AS resgates`
+      )
+      .get(usuarioId, usuarioId);
+    return Number(row.transferencias) === 1 || Number(row.resgates) === 1;
+  }
+
+  /**
+   * Remove um Aluno pelo ID (exclui de `usuarios` com CASCADE para `alunos`).
+   * Não apaga transações: se houver histórico, as FKs `ON DELETE RESTRICT` impedem a exclusão.
    * @param {number} id
    * @returns {boolean}
    */
   delete(id) {
     const usuarioId = Number(id);
     return withTransaction((db) => {
-      // Remove eventuais resgates e transferências vinculados ao aluno antes de remover o usuário
-      const transacoesIds = db
-        .prepare(
-          `SELECT transacao_id AS id FROM transferencias_moedas WHERE aluno_id = ?
-           UNION
-           SELECT transacao_id AS id FROM resgates_vantagens WHERE aluno_id = ?`
-        )
-        .all(usuarioId, usuarioId);
-
-      const deleteTransacaoStmt = db.prepare('DELETE FROM transacoes WHERE id = ?');
-      for (const t of transacoesIds) {
-        deleteTransacaoStmt.run(t.id);
-      }
-
       const result = db
         .prepare("DELETE FROM usuarios WHERE id = ? AND tipo = 'ALUNO'")
         .run(usuarioId);

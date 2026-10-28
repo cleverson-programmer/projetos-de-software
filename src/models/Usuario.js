@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+import { gerarHashSenha, verificarSenha } from '../utils/senha.js';
 
 /**
  * Superclasse Usuario conforme Diagrama de Classes da Sprint 1.
@@ -26,12 +26,10 @@ export class Usuario {
   }
 
   /**
-   * Gera hash seguro da senha em texto puro (PBKDF2 / SHA-256).
+   * Gera hash seguro da senha em texto puro (PBKDF2 / SHA-256, 600000 iterações).
    */
   static gerarHashSenha(senhaPura) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.pbkdf2Sync(senhaPura, salt, 10000, 64, 'sha256').toString('hex');
-    return `pbkdf2$${salt}$${hash}`;
+    return gerarHashSenha(senhaPura);
   }
 
   /**
@@ -41,19 +39,7 @@ export class Usuario {
     if (this.login !== loginInformado || !this.senhaHash) {
       return false;
     }
-
-    if (this.senhaHash.startsWith('pbkdf2$')) {
-      const [, salt, originalHash] = this.senhaHash.split('$');
-      const testHash = crypto.pbkdf2Sync(senhaPura, salt, 10000, 64, 'sha256').toString('hex');
-      return crypto.timingSafeEqual(Buffer.from(originalHash, 'hex'), Buffer.from(testHash, 'hex'));
-    }
-
-    // Compatibilidade com senhas de seed inicial ("123456")
-    if (this.senhaHash.startsWith('$2b$10$') && senhaPura === '123456') {
-      return true;
-    }
-
-    return this.senhaHash === senhaPura;
+    return verificarSenha(senhaPura, this.senhaHash);
   }
 
   toJSON() {

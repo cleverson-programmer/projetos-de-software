@@ -3,45 +3,74 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistema de Moeda Estudantil - PUC Minas (Sprint 2)</title>
+  <title>Sistema de Moeda Estudantil - PUC Minas (Sprint 3)</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="container topbar-inner">
       <div class="brand">
-        <span class="coin-badge">$</span>
+        <span class="coin-badge" aria-hidden="true">$</span>
         <div>
           <h1>Sistema de Moeda Estudantil</h1>
-          <p>Laboratório de Projeto de Software • PUC Minas — MVP Sprint 2 (Arquitetura MVC + DAO)</p>
+          <p>Laboratório de Projeto de Software • PUC Minas — Sprint 3 (Arquitetura MVC + DAO)</p>
         </div>
       </div>
 
-      <nav class="tabs" aria-label="Módulos do Sistema">
-        <button class="tab-btn active" data-tab="tab-alunos">🎓 CRUD de Alunos</button>
-        <button class="tab-btn" data-tab="tab-empresas">🏢 CRUD de Empresas Parceiras</button>
-        <button class="tab-btn" data-tab="tab-login">🔐 Autenticação (Login)</button>
-      </nav>
+      <div id="topbar-usuario" class="topbar-user hidden">
+        <div class="topbar-user-info">
+          <strong id="usuario-nome"></strong>
+          <span id="usuario-badge" class="badge badge-perfil"></span>
+        </div>
+        <span id="usuario-saldo" class="badge-coins hidden" aria-live="polite"></span>
+        <button type="button" id="btn-sair" class="btn btn-outline btn-sm">Sair</button>
+      </div>
     </div>
   </header>
 
-  <main class="container main-content">
+  <main id="app" class="container main-content">
     <div id="toast-feedback" class="toast hidden" role="status" aria-live="polite"></div>
 
+    <noscript>
+      <p class="helper-text">Este sistema precisa de JavaScript habilitado para funcionar.</p>
+    </noscript>
+
     <!-- =================================================================== -->
-    <!-- ABA 1: MÓDULO DE ALUNOS (US01 e US03)                               -->
+    <!-- TELA DESLOGADA: LOGIN E CADASTROS PÚBLICOS (US01, US02, US09)       -->
     <!-- =================================================================== -->
-    <section id="tab-alunos" class="tab-panel active">
-      <div class="grid-layout">
+    <section id="view-login" class="hidden" aria-label="Acesso ao sistema">
+      <div class="auth-grid">
+        <div class="card login-card">
+          <div class="card-header">
+            <h2>Entrar</h2>
+          </div>
+          <p class="helper-text">
+            Alunos, professores e empresas parceiras acessam o sistema com login e senha.
+            Os professores já estão pré-cadastrados pela instituição.
+          </p>
+
+          <form id="form-login" autocomplete="off">
+            <div class="form-group">
+              <label for="login-usuario">Login</label>
+              <input type="text" id="login-usuario" required autocomplete="username" placeholder="Ex.: kaio.silva" />
+            </div>
+
+            <div class="form-group">
+              <label for="login-senha">Senha</label>
+              <input type="password" id="login-senha" required autocomplete="current-password" placeholder="Informe sua senha" />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btn-entrar">Entrar no Sistema</button>
+          </form>
+        </div>
+
         <div class="card form-card">
           <div class="card-header">
-            <h2 id="form-aluno-titulo">Cadastrar Novo Aluno</h2>
-            <span id="badge-modo-aluno" class="badge badge-info">Modo Criação</span>
+            <h2>Cadastro de Aluno</h2>
+            <span class="badge badge-info">Novo aluno</span>
           </div>
 
           <form id="form-aluno" autocomplete="off">
-            <input type="hidden" id="aluno-id" />
-
             <div class="form-group">
               <label for="aluno-nome">Nome Completo *</label>
               <input type="text" id="aluno-nome" required placeholder="Ex.: Kaio Silva" />
@@ -87,61 +116,24 @@
                 <input type="text" id="aluno-login" required placeholder="Ex.: kaio.silva" />
               </div>
               <div class="form-group">
-                <label for="aluno-senha" id="label-aluno-senha">Senha *</label>
-                <input type="password" id="aluno-senha" required placeholder="Informe a senha" />
+                <label for="aluno-senha">Senha *</label>
+                <input type="password" id="aluno-senha" required autocomplete="new-password" placeholder="Informe a senha" />
               </div>
             </div>
 
             <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="btn-salvar-aluno">Cadastrar Aluno</button>
-              <button type="button" class="btn btn-secondary hidden" id="btn-cancelar-aluno">Cancelar Edição</button>
+              <button type="submit" class="btn btn-primary" id="btn-cadastrar-aluno">Cadastrar Aluno</button>
             </div>
           </form>
         </div>
 
-        <div class="card table-card">
-          <div class="card-header">
-            <h2>Alunos Cadastrados</h2>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-recarregar-alunos">↻ Atualizar Lista</button>
-          </div>
-
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Aluno / E-mail</th>
-                  <th>CPF / RG</th>
-                  <th>Instituição / Curso</th>
-                  <th>Login</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tabela-alunos-body">
-                <tr>
-                  <td colspan="6" class="empty-row">Carregando alunos...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- =================================================================== -->
-    <!-- ABA 2: MÓDULO DE EMPRESAS PARCEIRAS (US09 e US10)                   -->
-    <!-- =================================================================== -->
-    <section id="tab-empresas" class="tab-panel">
-      <div class="grid-layout">
         <div class="card form-card">
           <div class="card-header">
-            <h2 id="form-empresa-titulo">Cadastrar Empresa Parceira</h2>
-            <span id="badge-modo-empresa" class="badge badge-info">Modo Criação</span>
+            <h2>Cadastro de Empresa Parceira</h2>
+            <span class="badge badge-info">Nova empresa</span>
           </div>
 
           <form id="form-empresa" autocomplete="off">
-            <input type="hidden" id="empresa-id" />
-
             <div class="form-group">
               <label for="empresa-nome">Razão Social / Nome Fantasia *</label>
               <input type="text" id="empresa-nome" required placeholder="Ex.: Cantina Universitária Gourmet" />
@@ -169,82 +161,28 @@
                 <input type="text" id="empresa-login" required placeholder="Ex.: cantina.gourmet" />
               </div>
               <div class="form-group">
-                <label for="empresa-senha" id="label-empresa-senha">Senha *</label>
-                <input type="password" id="empresa-senha" required placeholder="Informe a senha" />
+                <label for="empresa-senha">Senha *</label>
+                <input type="password" id="empresa-senha" required autocomplete="new-password" placeholder="Informe a senha" />
               </div>
             </div>
 
             <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="btn-salvar-empresa">Cadastrar Empresa</button>
-              <button type="button" class="btn btn-secondary hidden" id="btn-cancelar-empresa">Cancelar Edição</button>
+              <button type="submit" class="btn btn-primary" id="btn-cadastrar-empresa">Cadastrar Empresa</button>
             </div>
           </form>
-        </div>
-
-        <div class="card table-card">
-          <div class="card-header">
-            <h2>Empresas Parceiras Cadastradas</h2>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-recarregar-empresas">↻ Atualizar Lista</button>
-          </div>
-
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Empresa / E-mail</th>
-                  <th>CNPJ</th>
-                  <th>Descrição</th>
-                  <th>Login</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tabela-empresas-body">
-                <tr>
-                  <td colspan="6" class="empty-row">Carregando empresas parceiras...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </div>
       </div>
     </section>
 
     <!-- =================================================================== -->
-    <!-- ABA 3: TESTE DE AUTENTICAÇÃO / LOGIN (US02)                         -->
+    <!-- ÁREA LOGADA: ABAS POR PERFIL (preenchidas pelo app.js)              -->
     <!-- =================================================================== -->
-    <section id="tab-login" class="tab-panel">
-      <div class="login-wrapper">
-        <div class="card login-card">
-          <div class="card-header">
-            <h2>Autenticação de Usuário (US02)</h2>
-          </div>
-          <p class="helper-text">
-            Valide as credenciais de qualquer <strong>Aluno</strong>, <strong>Empresa Parceira</strong> ou <strong>Professor</strong>.
-            (Contas iniciais do seed utilizam a senha <code>123456</code>).
-          </p>
-
-          <form id="form-login" autocomplete="off">
-            <div class="form-group">
-              <label for="login-usuario">Login</label>
-              <input type="text" id="login-usuario" required placeholder="Ex.: kaio.silva ou cantina.gourmet" />
-            </div>
-
-            <div class="form-group">
-              <label for="login-senha">Senha</label>
-              <input type="password" id="login-senha" required placeholder="Informe sua senha" />
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-block">Entrar no Sistema</button>
-          </form>
-
-          <div id="resultado-login" class="auth-result hidden"></div>
-        </div>
-      </div>
+    <section id="view-app" class="hidden" aria-label="Área do usuário">
+      <nav id="abas" class="tabs app-tabs" role="tablist" aria-label="Seções do sistema"></nav>
+      <div id="painel" class="app-painel" role="tabpanel" tabindex="-1"></div>
     </section>
   </main>
 
   <script src="/app.js" type="module"></script>
 </body>
 </html>
-

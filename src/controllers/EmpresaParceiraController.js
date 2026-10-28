@@ -5,11 +5,6 @@ export class EmpresaParceiraController {
     this.service = service;
   }
 
-  listar(_req, res) {
-    const empresas = this.service.listarEmpresas();
-    res.sendJson(200, empresas);
-  }
-
   buscarPorId(_req, res, id) {
     const empresa = this.service.buscarPorId(id);
     res.sendJson(200, empresa);

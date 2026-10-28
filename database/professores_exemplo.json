@@ -1,0 +1,19 @@
+[
+  {
+    "nome": "Prof. Henrique Duarte Lima",
+    "email": "henrique.lima@pucminas.br",
+    "login": "henrique.lima",
+    "cpf": "987.654.321-00",
+    "departamento": "Sistemas de Informação",
+    "instituicaoId": 1
+  },
+  {
+    "nome": "Profa. Camila Reis Andrade",
+    "email": "camila.andrade@ufmg.br",
+    "login": "camila.andrade",
+    "cpf": "248.326.190-63",
+    "departamento": "Ciência da Computação",
+    "instituicaoId": 3,
+    "senha": "Trocar@123"
+  }
+]

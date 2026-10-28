@@ -1,21 +1,20 @@
+import './config/env.js';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { InstituicaoEnsinoController } from './controllers/InstituicaoEnsinoController.js';
-import { AlunoController } from './controllers/AlunoController.js';
-import { EmpresaParceiraController } from './controllers/EmpresaParceiraController.js';
-import { AuthController } from './controllers/AuthController.js';
+import { LIMITE_CORPO_BYTES } from './config/regras.js';
+import { getDatabase } from './config/database.js';
+import { rotas } from './routes.js';
+import { autenticarRequisicao, exigirPerfil, exigirProprietario, obterSegredo } from './middleware/auth.js';
+import { criarErro, traduzirErroBanco } from './utils/erros.js';
+import { avisarConfiguracaoEmail } from './config/mail.js';
+import { iniciarCreditoSemestral } from './jobs/creditoSemestralJob.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
-
-const instituicaoController = new InstituicaoEnsinoController();
-const alunoController = new AlunoController();
-const empresaController = new EmpresaParceiraController();
-const authController = new AuthController();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -23,121 +22,201 @@ const MIME_TYPES = {
   '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
   '.svg': 'image/svg+xml',
 };
 
+// A política exige front-end sem scripts/estilos inline (somente arquivos da própria origem).
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' https: data:",
+  "connect-src 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+function corpoGrandeDemais() {
+  return criarErro(413, 'O corpo da requisição excede o limite de 1 MB.', { Connection: 'close' });
+}
+
+/**
+ * Lê o corpo JSON (limite de LIMITE_CORPO_BYTES). Corpo vazio resulta em `{}`.
+ */
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
-    let raw = '';
+    const declarado = Number(req.headers['content-length']);
+    if (Number.isFinite(declarado) && declarado > LIMITE_CORPO_BYTES) {
+      return reject(corpoGrandeDemais());
+    }
+
+    const pedacos = [];
+    let total = 0;
+    let estourou = false;
+
     req.on('data', (chunk) => {
-      raw += chunk;
+      if (estourou) return;
+      total += chunk.length;
+      if (total > LIMITE_CORPO_BYTES) {
+        estourou = true;
+        pedacos.length = 0;
+        reject(corpoGrandeDemais());
+        return;
+      }
+      pedacos.push(chunk);
     });
+
     req.on('end', () => {
-      if (!raw) return resolve({});
+      if (estourou) return;
+      const raw = Buffer.concat(pedacos).toString('utf8');
+      if (raw.trim() === '') return resolve({});
       try {
-        resolve(JSON.parse(raw));
+        const corpo = JSON.parse(raw);
+        if (corpo === null || typeof corpo !== 'object' || Array.isArray(corpo)) {
+          return reject(criarErro(400, 'O corpo da requisição deve ser um objeto JSON.'));
+        }
+        resolve(corpo);
       } catch {
-        const err = new Error('JSON inválido no corpo da requisição.');
-        err.statusCode = 400;
-        reject(err);
+        reject(criarErro(400, 'JSON inválido no corpo da requisição.'));
       }
     });
+
     req.on('error', reject);
   });
 }
 
+/**
+ * Procura a rota pelo método e pelo caminho.
+ * Retorna `{ rota, params }`, `{ metodosPermitidos }` (caminho existe com outro método) ou `null`.
+ */
+function encontrarRota(metodo, pathname) {
+  const permitidos = new Set();
+  for (const rota of rotas) {
+    const match = rota.padrao.exec(pathname);
+    if (!match) continue;
+    if (rota.metodo === metodo) return { rota, params: match.slice(1) };
+    permitidos.add(rota.metodo);
+  }
+  return permitidos.size > 0 ? { metodosPermitidos: [...permitidos] } : null;
+}
+
+function servirArquivoEstatico(req, res, pathname) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Método não permitido.');
+  }
+
+  const naoEncontrado = () => {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Página não encontrada.');
+  };
+
+  let caminhoDecodificado;
+  try {
+    caminhoDecodificado = decodeURIComponent(pathname);
+  } catch {
+    return naoEncontrado();
+  }
+  if (caminhoDecodificado.includes('\0')) return naoEncontrado();
+
+  const relativePath = caminhoDecodificado === '/' ? 'index.html' : caminhoDecodificado.replace(/^\/+/, '');
+  const filePath = path.resolve(PUBLIC_DIR, relativePath);
+
+  if (!filePath.startsWith(PUBLIC_DIR + path.sep)) return naoEncontrado();
+
+  let stat;
+  try {
+    stat = fs.statSync(filePath);
+  } catch {
+    return naoEncontrado();
+  }
+  if (stat.isDirectory()) return naoEncontrado();
+
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  const content = fs.readFileSync(filePath);
+  res.writeHead(200, {
+    'Content-Type': contentType,
+    'Content-Length': content.length,
+    'Content-Security-Policy': CONTENT_SECURITY_POLICY,
+  });
+  return res.end(req.method === 'HEAD' ? undefined : content);
+}
+
 export function createAppServer() {
   return http.createServer(async (req, res) => {
-    // Helper para envio padronizado de respostas JSON
-    res.sendJson = (statusCode, payload) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    // Helper para envio padronizado de respostas JSON (API em mesma origem: sem CORS)
+    res.sendJson = (statusCode, payload, headers = {}) => {
       res.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Cache-Control': 'no-store',
+        ...headers,
       });
       res.end(JSON.stringify(payload));
     };
 
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      });
-      return res.end();
-    }
-
-    const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    const pathname = urlObj.pathname;
-
     try {
+      let urlObj;
+      try {
+        urlObj = new URL(`http://localhost${req.url}`);
+      } catch {
+        throw criarErro(400, 'URL inválida.');
+      }
+      const pathname = urlObj.pathname;
+
       // Rotas da API REST
       if (pathname.startsWith('/api/')) {
-        if (['POST', 'PUT'].includes(req.method)) {
+        const encontrada = encontrarRota(req.method, pathname);
+
+        if (!encontrada) {
+          throw criarErro(404, 'Rota da API não encontrada.');
+        }
+        if (encontrada.metodosPermitidos) {
+          throw criarErro(405, 'Método não permitido para esta rota.', {
+            Allow: encontrada.metodosPermitidos.join(', '),
+          });
+        }
+
+        const { rota, params } = encontrada;
+
+        if (!rota.publica) {
+          autenticarRequisicao(req);
+          if (rota.perfis) exigirPerfil(req, ...rota.perfis);
+          if (rota.proprietario) exigirProprietario(req, params[0], rota.proprietario);
+        }
+
+        if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
           req.body = await parseJsonBody(req);
         }
 
-        // Instituições de Ensino
-        if (pathname === '/api/instituicoes' && req.method === 'GET') {
-          return instituicaoController.listar(req, res);
-        }
-
-        // Autenticação
-        if (pathname === '/api/auth/login' && req.method === 'POST') {
-          return authController.login(req, res);
-        }
-
-        // CRUD Alunos
-        if (pathname === '/api/alunos') {
-          if (req.method === 'GET') return alunoController.listar(req, res);
-          if (req.method === 'POST') return alunoController.criar(req, res);
-        }
-
-        const alunoMatch = pathname.match(/^\/api\/alunos\/(\d+)$/);
-        if (alunoMatch) {
-          const id = Number(alunoMatch[1]);
-          if (req.method === 'GET') return alunoController.buscarPorId(req, res, id);
-          if (req.method === 'PUT') return alunoController.atualizar(req, res, id);
-          if (req.method === 'DELETE') return alunoController.excluir(req, res, id);
-        }
-
-        // CRUD Empresas Parceiras
-        if (pathname === '/api/empresas') {
-          if (req.method === 'GET') return empresaController.listar(req, res);
-          if (req.method === 'POST') return empresaController.criar(req, res);
-        }
-
-        const empresaMatch = pathname.match(/^\/api\/empresas\/(\d+)$/);
-        if (empresaMatch) {
-          const id = Number(empresaMatch[1]);
-          if (req.method === 'GET') return empresaController.buscarPorId(req, res, id);
-          if (req.method === 'PUT') return empresaController.atualizar(req, res, id);
-          if (req.method === 'DELETE') return empresaController.excluir(req, res, id);
-        }
-
-        return res.sendJson(404, { error: 'Rota da API não encontrada.' });
+        await rota.handler(req, res, params);
+        return;
       }
 
       // Arquivos estáticos do Front-end (public/)
-      const relativePath = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-      const filePath = path.resolve(PUBLIC_DIR, relativePath);
+      return servirArquivoEstatico(req, res, pathname);
+    } catch (error) {
+      const tratado = error.statusCode ? error : traduzirErroBanco(error);
 
-      if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end('Página não encontrada.');
+      if (!tratado) {
+        console.error('[Servidor] Erro inesperado:', error);
       }
 
-      const ext = path.extname(filePath).toLowerCase();
-      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-      const content = fs.readFileSync(filePath);
-      res.writeHead(200, { 'Content-Type': contentType });
-      return res.end(content);
-    } catch (error) {
-      const status = error.statusCode || 500;
-      return res.sendJson(status, {
-        error: error.message || 'Erro interno no servidor.',
-      });
+      if (res.headersSent) {
+        return res.end();
+      }
+      if (tratado) {
+        return res.sendJson(tratado.statusCode, { error: tratado.message }, tratado.headers);
+      }
+      return res.sendJson(500, { error: 'Erro interno no servidor.' });
     }
   });
 }
@@ -145,9 +224,18 @@ export function createAppServer() {
 // Inicialização direta quando executado via `npm start` ou `node src/server.js`
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   const PORT = process.env.PORT || 3000;
+
+  // Abre o banco já na subida: aplica o schema (banco novo) e a migração de senhas legadas.
+  getDatabase();
+  // Emite o aviso de AUTH_SECRET ausente (se for o caso) na inicialização.
+  obterSegredo();
+  // Avisa se o envio real de e-mails está desativado (modo simulado).
+  avisarConfiguracaoEmail();
+
   const server = createAppServer();
   server.listen(PORT, () => {
+    // Crédito semestral automático (na subida e de hora em hora); nunca disparado por import.
+    iniciarCreditoSemestral();
     console.log(`Servidor MVC rodando em http://localhost:${PORT}`);
   });
 }
-
