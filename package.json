@@ -16,5 +16,8 @@
     "dao",
     "puc-minas"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "nodemailer": "^10.2.1"
+  }
 }
