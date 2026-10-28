@@ -1,5 +1,7 @@
 import { Usuario } from './Usuario.js';
 import { InstituicaoEnsino } from './InstituicaoEnsino.js';
+import { ResgateVantagem } from './ResgateVantagem.js';
+import { criarErro } from '../utils/erros.js';
 
 /**
  * Subclasse Aluno (especializa Usuario) conforme Diagrama de Classes da Sprint 1.
@@ -20,6 +22,7 @@ export class Aluno extends Usuario {
     saldoMoedas = 0,
     instituicaoId,
     instituicao = null,
+    transacoes = [],
   }) {
     super({
       id,
@@ -38,6 +41,7 @@ export class Aluno extends Usuario {
     this.saldoMoedas = Number(saldoMoedas ?? 0);
     this.instituicaoId = Number(instituicaoId);
     this.instituicao = instituicao;
+    this.transacoes = transacoes;
   }
 
   receberMoedas(qtd) {
@@ -45,6 +49,39 @@ export class Aluno extends Usuario {
       throw new Error('A quantidade de moedas recebida deve ser maior que zero.');
     }
     this.saldoMoedas += Number(qtd);
+  }
+
+  /**
+   * Resgata uma vantagem ativa: valida o saldo, debita o custo em memória e gera o código do cupom.
+   * A persistência atômica (débito + transação) é feita pelo TransacaoDAO.
+   * @param {import('./Vantagem.js').Vantagem} vantagem
+   * @returns {ResgateVantagem}
+   */
+  resgatarVantagem(vantagem) {
+    if (!vantagem) {
+      throw criarErro(404, 'Vantagem não encontrada.');
+    }
+    if (!vantagem.ativa) {
+      throw criarErro(409, 'Esta vantagem não está mais disponível para resgate.');
+    }
+    if (vantagem.custoMoedas > this.saldoMoedas) {
+      throw criarErro(409, 'Saldo insuficiente');
+    }
+
+    this.saldoMoedas -= vantagem.custoMoedas;
+    return new ResgateVantagem({
+      quantidade: vantagem.custoMoedas,
+      alunoId: this.id,
+      vantagemId: vantagem.id,
+      codigoCupom: ResgateVantagem.gerarCodigo(),
+      alunoNome: this.nome,
+      vantagemNome: vantagem.nome,
+      empresaNome: vantagem.empresaNome,
+    });
+  }
+
+  consultarExtrato() {
+    return { saldoMoedas: this.saldoMoedas, transacoes: this.transacoes ?? [] };
   }
 
   static fromRow(row) {
