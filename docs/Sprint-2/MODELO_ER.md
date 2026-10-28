@@ -36,7 +36,7 @@ Adotou-se a estratégia de **Herança com Tabela por Subclasse (JOINED)**:
 | `nome` | VARCHAR(255) | NOT NULL | Nome completo ou razão social |
 | `email` | VARCHAR(255) | NOT NULL, UNIQUE | E-mail para contato e login |
 | `login` | VARCHAR(100) | NOT NULL, UNIQUE | Nome de usuário único no sistema |
-| `senha_hash` | VARCHAR(255) | NOT NULL | Hash seguro da senha (BCrypt) |
+| `senha_hash` | VARCHAR(255) | NOT NULL | Hash seguro da senha (PBKDF2) |
 | `tipo` | VARCHAR(20) | NOT NULL | `ALUNO`, `PROFESSOR` ou `EMPRESA` |
 | `created_at` | TIMESTAMP | DEFAULT NOW() | Data de cadastro |
 | `updated_at` | TIMESTAMP | DEFAULT NOW() | Última atualização |
