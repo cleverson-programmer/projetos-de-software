@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <rect x="40" y="130" width="170" height="170" rx="26" fill="#ede9fe" stroke="#7c3aed" stroke-width="10"/>
+    <rect x="302" y="130" width="170" height="170" rx="26" fill="#ede9fe" stroke="#7c3aed" stroke-width="10"/>
+    <text x="125" y="244" font-family="Consolas, monospace" font-weight="800" font-size="84" text-anchor="middle" fill="#7c3aed">&lt;/&gt;</text>
+    <text x="387" y="244" font-family="Consolas, monospace" font-weight="800" font-size="84" text-anchor="middle" fill="#7c3aed">{ }</text>
+    <path d="M222 190 H290 M270 170 l22 20 l-22 20" fill="none" stroke="#22c55e" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M290 240 H222 M242 220 l-22 20 l22 20" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="256" y="400" font-family="Segoe UI, Arial" font-weight="800" font-size="84" text-anchor="middle" fill="#4c1d95">REST</text></svg>

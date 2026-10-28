@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <path d="M24 90 H244 L226 400 L134 440 L42 400 Z" fill="#e44d26" stroke="#9a3412" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M268 90 H488 L470 400 L378 440 L286 400 Z" fill="#1572b6" stroke="#0c4a6e" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="134" y="285" font-family="Segoe UI, Arial" font-weight="800" font-size="62" text-anchor="middle" fill="#fff">HTML</text>
+    <text x="378" y="285" font-family="Segoe UI, Arial" font-weight="800" font-size="62" text-anchor="middle" fill="#fff">CSS</text></svg>

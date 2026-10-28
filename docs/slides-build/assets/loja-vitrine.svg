@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <rect x="92" y="216" width="328" height="244" rx="10" fill="#fef3c7" stroke="#92400e" stroke-width="8"/>
+    <rect x="212" y="316" width="88" height="144" rx="8" fill="#3b82f6" stroke="#1d4ed8" stroke-width="8"/>
+    <circle cx="282" cy="392" r="6" fill="#fbbf24"/>
+    <rect x="116" y="252" width="80" height="108" rx="8" fill="#bae6fd" stroke="#0369a1" stroke-width="8"/>
+    <rect x="316" y="252" width="80" height="108" rx="8" fill="#bae6fd" stroke="#0369a1" stroke-width="8"/>
+    <rect x="64" y="140" width="64" height="76" fill="#ef4444" stroke="#b91c1c" stroke-width="6"/>
+    <path d="M64 216 a32 32 0 0 0 64 0 z" fill="#ef4444" stroke="#b91c1c" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><rect x="128" y="140" width="64" height="76" fill="#fee2e2" stroke="#b91c1c" stroke-width="6"/>
+    <path d="M128 216 a32 32 0 0 0 64 0 z" fill="#fee2e2" stroke="#b91c1c" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><rect x="192" y="140" width="64" height="76" fill="#ef4444" stroke="#b91c1c" stroke-width="6"/>
+    <path d="M192 216 a32 32 0 0 0 64 0 z" fill="#ef4444" stroke="#b91c1c" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><rect x="256" y="140" width="64" height="76" fill="#fee2e2" stroke="#b91c1c" stroke-width="6"/>
+    <path d="M256 216 a32 32 0 0 0 64 0 z" fill="#fee2e2" stroke="#b91c1c" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><rect x="320" y="140" width="64" height="76" fill="#ef4444" stroke="#b91c1c" stroke-width="6"/>
+    <path d="M320 216 a32 32 0 0 0 64 0 z" fill="#ef4444" stroke="#b91c1c" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><rect x="384" y="140" width="64" height="76" fill="#fee2e2" stroke="#b91c1c" stroke-width="6"/>
+    <path d="M384 216 a32 32 0 0 0 64 0 z" fill="#fee2e2" stroke="#b91c1c" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="186" y="62" width="140" height="62" rx="14" fill="#fbbf24" stroke="#b45309" stroke-width="8"/>
+    <text x="256" y="106" font-family="Segoe UI, Arial" font-weight="800" font-size="36" text-anchor="middle" fill="#7c2d12">LOJA</text></svg>
