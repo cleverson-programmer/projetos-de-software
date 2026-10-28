@@ -161,16 +161,16 @@ INSERT INTO usuarios (id, nome, email, login, senha_hash, tipo) VALUES
     (6, 'Livraria & Papelaria TechBook', 'parceria@techbook.com.br', 'techbook', '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', 'EMPRESA');
 
 INSERT INTO professores (usuario_id, cpf, departamento, saldo_moedas, instituicao_id) VALUES
-    (1, '111.222.333-44', 'Engenharia de Software', 750, 1),
-    (2, '222.333.444-55', 'Ciência da Computação', 1000, 2);
+    (1, '529.982.247-25', 'Engenharia de Software', 750, 1),
+    (2, '111.444.777-35', 'Ciência da Computação', 1000, 2);
 
 INSERT INTO alunos (usuario_id, cpf, rg, endereco, curso, saldo_moedas, instituicao_id) VALUES
-    (3, '333.444.555-66', 'MG-12.345.678', 'Rua Padre Eustáquio, 1200 - Belo Horizonte, MG', 'Engenharia de Software', 150, 1),
-    (4, '444.555.666-77', 'MG-87.654.321', 'Av. Contorno, 4500 - Belo Horizonte, MG', 'Engenharia de Software', 0, 1);
+    (3, '390.533.447-05', 'MG-12.345.678', 'Rua Padre Eustáquio, 1200 - Belo Horizonte, MG', 'Engenharia de Software', 150, 1),
+    (4, '123.456.789-09', 'MG-87.654.321', 'Av. Contorno, 4500 - Belo Horizonte, MG', 'Engenharia de Software', 0, 1);
 
 INSERT INTO empresas_parceiras (usuario_id, cnpj, descricao) VALUES
-    (5, '12.345.678/0001-90', 'Restaurante e lanchonete universitária com descontos especiais em refeições e lanches no campus.'),
-    (6, '98.765.432/0001-10', 'Livraria técnica, cursos online e materiais de informática e papelaria para estudantes.');
+    (5, '12.345.678/0001-95', 'Restaurante e lanchonete universitária com descontos especiais em refeições e lanches no campus.'),
+    (6, '11.222.333/0001-81', 'Livraria técnica, cursos online e materiais de informática e papelaria para estudantes.');
 
 INSERT INTO vantagens (id, empresa_id, nome, descricao, foto_url, custo_moedas, ativa) VALUES
     (1, 5, 'Combo Lanche + Suco Natural', 'Vale 1 hambúrguer artesanal + suco natural de 500ml na Cantina Universitária.', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600', 100, 1),
