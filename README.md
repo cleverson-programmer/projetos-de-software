@@ -14,14 +14,28 @@ Sistema para estimular o reconhecimento do mérito estudantil através de uma mo
 ## 🗂️ Entregas por Sprint
 
 ### Sprint 1 (`Lab03S01`)
-Documentação e modelagem UML disponíveis em [`docs/Sprint 1/`](./docs/Sprint%201/):
-- Diagrama de Casos de Uso
-- Histórias do Usuário
-- Diagrama de Classes
-- Diagrama de Componentes
+Documentação e modelagem UML em PDFs disponíveis em [`docs/Sprint 1-lab3/`](./docs/Sprint%201-lab3/):
+- [Casos de Uso](./docs/Sprint%201-lab3/Casos%20de%20Uso.drawio.pdf) — Diagrama de Casos de Uso
+- [Histórias do Usuário](./docs/Sprint%201-lab3/Hist%C3%B3rias%20do%20Usu%C3%A1rio.drawio.pdf) — Histórias do Usuário
+- [Diagrama de Classes](./docs/Sprint%201-lab3/Diagrama%20de%20Classes.drawio.pdf) — Diagrama de Classes
+- [Diagrama de Componentes](./docs/Sprint%201-lab3/Diagrama%20de%20Componentes.drawio.pdf) — Diagrama de Componentes
+
+### Sprint 1 (`Lab04S01`)
+Diagramas de interação e sequência disponíveis em [`docs/Sprint-1-lab4/`](./docs/Sprint-1-lab4/):
+- [Visão Geral de Interação](./docs/Sprint-1-lab4/Vis%C3%A3o%20Geral%20de%20Intera%C3%A7%C3%A3o.pdf) — Visão Geral de Interação
+- [SD01 - Realizar Login](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD01%20-%20Realizar%20Login.drawio.pdf) — Diagrama de Sequência 01
+- [SD02 - Cadastrar Aluno](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD02%20-%20Cadastrar%20Aluno.drawio.pdf) — Diagrama de Sequência 02
+- [SD03 - Cadastrar Empresa Parceira](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD03%20-%20Cadastrar%20Empresa%20Parceira.drawio.pdf) — Diagrama de Sequência 03
+- [SD04 - Cadastrar Vantagem](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD04%20-%20Cadastrar%20Vantagem.drawio.pdf) — Diagrama de Sequência 04
+- [SD05 - Enviar Moedas](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD05%20-%20Enviar%20Moedas.drawio.pdf) — Diagrama de Sequência 05
+- [SD06 - Consultar Extrato](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD06%20-%20Consultar%20Extrato.drawio.pdf) — Diagrama de Sequência 06
+- [SD07 - Consultar Vantagens](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD07%20-%20Consultar%20Vantagens.drawio.pdf) — Diagrama de Sequência 07
+- [SD08 - Resgatar Vantagem](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD08%20-%20Resgatar%20Vantagem.drawio.pdf) — Diagrama de Sequência 08
+- [SD09 - Creditar Moedas Semestrais](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD09%20-%20Creditar%20Moedas%20Semestrais.drawio.pdf) — Diagrama de Sequência 09
+- [SD10 - Manter Perfil do Aluno](./docs/Sprint-1-lab4/Diagramas-de-sequencia/SD10%20-%20Manter%20Perfil%20do%20Aluno.drawio.pdf) — Diagrama de Sequência 10
 
 ### Sprint 2 (`Lab03S02`)
-- **Modelo Entidade-Relacionamento (ER):** [`docs/Sprint-2/MODELO_ER.md`](./docs/Sprint-2/MODELO_ER.md) e [`docs/Sprint-2/Diagrama ER.png`](./docs/Sprint-2/Diagrama%20ER.png).
+- **Modelo Entidade-Relacionamento (ER):** [`docs/Sprint-2-lab3/MODELO_ER.md`](./docs/Sprint-2-lab3/MODELO_ER.md) e [`docs/Sprint-2-lab3/Diagrama ER.png`](./docs/Sprint-2-lab3/Diagrama%20ER.png).
 - **Banco de Dados Relacional:** scripts SQL e banco pré-populado em [`database/`](./database/) (`moeda_estudantil.db` para SQLite e `init_postgres.sql` para PostgreSQL).
 - **Padrão DAO:** [`src/dao/`](./src/dao/) e [`src/models/`](./src/models/), com transações atômicas.
 
