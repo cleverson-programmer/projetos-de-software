@@ -1,40 +1,14 @@
-import { UsuarioDAO } from '../dao/UsuarioDAO.js';
-import { AlunoDAO } from '../dao/AlunoDAO.js';
-import { EmpresaParceiraDAO } from '../dao/EmpresaParceiraDAO.js';
+import { getDatabase } from '../config/database.js';
+import { ContaDAO } from '../dao/ContaDAO.js';
+import { Usuario } from '../models/Usuario.js';
+import { fail, login as validateLogin } from '../utils/validation.js';
 
 export class AuthService {
-  constructor(
-    usuarioDAO = new UsuarioDAO(),
-    alunoDAO = new AlunoDAO(),
-    empresaDAO = new EmpresaParceiraDAO()
-  ) {
-    this.usuarioDAO = usuarioDAO;
-    this.alunoDAO = alunoDAO;
-    this.empresaDAO = empresaDAO;
-  }
-
-  autenticar(login, senha) {
-    if (!login || !senha) {
-      const error = new Error('Informe login e senha para autenticar.');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const usuario = this.usuarioDAO.findByLogin(login.trim());
-    if (!usuario || !usuario.autenticar(login.trim(), senha)) {
-      const error = new Error('Credenciais inválidas. Verifique seu login e senha.');
-      error.statusCode = 401;
-      throw error;
-    }
-
-    if (usuario.tipo === 'ALUNO') {
-      return this.alunoDAO.findById(usuario.id);
-    }
-    if (usuario.tipo === 'EMPRESA') {
-      return this.empresaDAO.findById(usuario.id);
-    }
-
-    return usuario;
+  async autenticar(login, senha) {
+    const clean = validateLogin(login);
+    if (typeof senha !== 'string' || !senha || senha.length > 128) fail(401, 'Login ou senha inválidos.');
+    const { rows } = await getDatabase().query('SELECT id, senha_hash FROM usuarios WHERE lower(login) = $1 AND ativo', [clean]);
+    if (!rows.length || !await Usuario.verificarSenha(senha, rows[0].senha_hash)) fail(401, 'Login ou senha inválidos.');
+    return new ContaDAO().perfil(rows[0].id);
   }
 }
-

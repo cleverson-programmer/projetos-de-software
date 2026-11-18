@@ -5,12 +5,12 @@ export class InstituicaoEnsinoService {
     this.instituicaoDAO = instituicaoDAO;
   }
 
-  listarInstituicoes() {
-    return this.instituicaoDAO.findAll();
+  async listarInstituicoes() {
+    return await this.instituicaoDAO.findAll();
   }
 
-  buscarPorId(id) {
-    const inst = this.instituicaoDAO.findById(id);
+  async buscarPorId(id) {
+    const inst = await this.instituicaoDAO.findById(id);
     if (!inst) {
       const error = new Error('Instituição de ensino não encontrada.');
       error.statusCode = 404;

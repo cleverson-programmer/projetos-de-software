@@ -1,17 +1,64 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: moeda_estudantil_db
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: moeda_estudantil
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${POSTGRES_DB:-moeda_estudantil}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init_postgres.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.27.4
+    restart: unless-stopped
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit_data:/data
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: development
+      COOKIE_SECURE: "false"
+      APP_TIMEZONE: America/Sao_Paulo
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/${POSTGRES_DB:-moeda_estudantil}
+      SMTP_HOST: ${COMPOSE_SMTP_HOST:-mailpit}
+      SMTP_PORT: ${COMPOSE_SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: "${SMTP_FROM:-Moeda Estudantil <nao-responda@moeda.local>}"
+      DEFAULT_ALUNO_EMAIL: ${DEFAULT_ALUNO_EMAIL:-aluno.demo@example.test}
+      DEFAULT_PROFESSOR_EMAIL: ${DEFAULT_PROFESSOR_EMAIL:-professor.demo@example.test}
+      DEFAULT_EMPRESA_EMAIL: ${DEFAULT_EMPRESA_EMAIL:-cantina.demo@example.test}
+      DEFAULT_LIVRARIA_EMAIL: ${DEFAULT_LIVRARIA_EMAIL:-livraria.demo@example.test}
+      DEFAULT_ALUNO_PASSWORD: ${DEFAULT_ALUNO_PASSWORD:-Aluno@123456}
+      DEFAULT_PROFESSOR_PASSWORD: ${DEFAULT_PROFESSOR_PASSWORD:-Professor@123456}
+      DEFAULT_EMPRESA_PASSWORD: ${DEFAULT_EMPRESA_PASSWORD:-Empresa@123456}
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
 
 volumes:
   postgres_data:
+  mailpit_data:

@@ -19,135 +19,59 @@ const SELECT_EMPRESA_BASE = `
   INNER JOIN usuarios u ON u.id = e.usuario_id
 `;
 
-/**
- * DAO responsável pela persistência da entidade `EmpresaParceira` (tabelas `usuarios` + `empresas_parceiras`).
- */
 export class EmpresaParceiraDAO {
-  /**
-   * Lista todas as empresas parceiras cadastradas.
-   * @returns {EmpresaParceira[]}
-   */
-  findAll() {
-    const db = getDatabase();
-    const rows = db.prepare(`${SELECT_EMPRESA_BASE} ORDER BY u.id ASC`).all();
-    return rows.map((row) => EmpresaParceira.fromRow(row));
+  async findAll() {
+    const { rows } = await getDatabase().query(SELECT_EMPRESA_BASE + ' ORDER BY u.id');
+    return rows.map(EmpresaParceira.fromRow);
   }
 
-  /**
-   * Busca uma empresa parceira pelo seu ID de usuário.
-   * @param {number} id
-   * @returns {EmpresaParceira | null}
-   */
-  findById(id) {
-    const db = getDatabase();
-    const row = db
-      .prepare(`${SELECT_EMPRESA_BASE} WHERE e.usuario_id = ?`)
-      .get(Number(id));
-    return EmpresaParceira.fromRow(row);
+  async findById(id) {
+    const { rows } = await getDatabase().query(SELECT_EMPRESA_BASE + ' WHERE e.usuario_id = $1', [Number(id)]);
+    return EmpresaParceira.fromRow(rows[0]);
   }
 
-  /**
-   * Busca uma empresa parceira pelo CNPJ.
-   * @param {string} cnpj
-   * @returns {EmpresaParceira | null}
-   */
-  findByCnpj(cnpj) {
-    const db = getDatabase();
-    const row = db
-      .prepare(`${SELECT_EMPRESA_BASE} WHERE e.cnpj = ?`)
-      .get(cnpj);
-    return EmpresaParceira.fromRow(row);
+  async findByCnpj(cnpj) {
+    const { rows } = await getDatabase().query(SELECT_EMPRESA_BASE + ' WHERE e.cnpj = $1', [cnpj]);
+    return EmpresaParceira.fromRow(rows[0]);
   }
 
-  /**
-   * Cria uma nova Empresa Parceira em transação atômica (insere em `usuarios` e em `empresas_parceiras`).
-   */
-  create({ nome, email, login, senha, senhaHash, cnpj, descricao = null }) {
-    const hashFinal = senhaHash || Usuario.gerarHashSenha(senha);
-
-    const novoId = withTransaction((db) => {
-      const resultUsuario = db
-        .prepare(
-          `INSERT INTO usuarios (nome, email, login, senha_hash, tipo)
-           VALUES (?, ?, ?, ?, 'EMPRESA')`
-        )
-        .run(nome, email, login, hashFinal);
-
-      const usuarioId = Number(resultUsuario.lastInsertRowid);
-
-      db.prepare(
-        `INSERT INTO empresas_parceiras (usuario_id, cnpj, descricao)
-         VALUES (?, ?, ?)`
-      ).run(usuarioId, cnpj, descricao);
-
-      return usuarioId;
+  async create({ nome, email, login, senha, senhaHash, cnpj, descricao = null }) {
+    const hash = senhaHash || Usuario.gerarHashSenha(senha);
+    return withTransaction(async (client) => {
+      const { rows: users } = await client.query(
+        "INSERT INTO usuarios (nome, email, login, senha_hash, tipo) VALUES ($1, $2, $3, $4, 'EMPRESA') RETURNING id",
+        [nome, email, login, hash]
+      );
+      const id = users[0].id;
+      await client.query('INSERT INTO empresas_parceiras (usuario_id, cnpj, descricao) VALUES ($1, $2, $3)', [id, cnpj, descricao]);
+      const { rows } = await client.query(SELECT_EMPRESA_BASE + ' WHERE e.usuario_id = $1', [id]);
+      return EmpresaParceira.fromRow(rows[0]);
     });
-
-    return this.findById(novoId);
   }
 
-  /**
-   * Atualiza os dados de uma Empresa Parceira existente em transação atômica (`usuarios` + `empresas_parceiras`).
-   */
-  update(id, { nome, email, login, senha, cnpj, descricao }) {
-    const usuarioId = Number(id);
-    const existente = this.findById(usuarioId);
-    if (!existente) {
-      return null;
-    }
-
-    const novoNome = nome ?? existente.nome;
-    const novoEmail = email ?? existente.email;
-    const novoLogin = login ?? existente.login;
-    const novaSenhaHash = senha ? Usuario.gerarHashSenha(senha) : existente.senhaHash;
-    const novoCnpj = cnpj ?? existente.cnpj;
-    const novaDescricao = descricao !== undefined ? descricao : existente.descricao;
-
-    withTransaction((db) => {
-      db.prepare(
-        `UPDATE usuarios
-         SET nome = ?, email = ?, login = ?, senha_hash = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ? AND tipo = 'EMPRESA'`
-      ).run(novoNome, novoEmail, novoLogin, novaSenhaHash, usuarioId);
-
-      db.prepare(
-        `UPDATE empresas_parceiras
-         SET cnpj = ?, descricao = ?
-         WHERE usuario_id = ?`
-      ).run(novoCnpj, novaDescricao, usuarioId);
+  async update(id, dados) {
+    return withTransaction(async (client) => {
+      const { rows } = await client.query(SELECT_EMPRESA_BASE + ' WHERE e.usuario_id = $1 FOR UPDATE OF u, e', [Number(id)]);
+      const atual = EmpresaParceira.fromRow(rows[0]);
+      if (!atual) return null;
+      await client.query(
+        "UPDATE usuarios SET nome = $1, email = $2, login = $3, senha_hash = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 AND tipo = 'EMPRESA'",
+        [dados.nome ?? atual.nome, dados.email ?? atual.email, dados.login ?? atual.login,
+          dados.senha ? Usuario.gerarHashSenha(dados.senha) : atual.senhaHash, atual.id]
+      );
+      await client.query('UPDATE empresas_parceiras SET cnpj = $1, descricao = $2 WHERE usuario_id = $3',
+        [dados.cnpj ?? atual.cnpj, dados.descricao !== undefined ? dados.descricao : atual.descricao, atual.id]);
+      const result = await client.query(SELECT_EMPRESA_BASE + ' WHERE e.usuario_id = $1', [atual.id]);
+      return EmpresaParceira.fromRow(result.rows[0]);
     });
-
-    return this.findById(usuarioId);
   }
 
-  /**
-   * Remove uma Empresa Parceira pelo ID (limpa resgates de vantagens vinculadas e exclui de `usuarios` com CASCADE).
-   * @param {number} id
-   * @returns {boolean}
-   */
-  delete(id) {
-    const usuarioId = Number(id);
-    return withTransaction((db) => {
-      const resgatesVinculados = db
-        .prepare(
-          `SELECT r.transacao_id AS id
-           FROM resgates_vantagens r
-           INNER JOIN vantagens v ON v.id = r.vantagem_id
-           WHERE v.empresa_id = ?`
-        )
-        .all(usuarioId);
-
-      const deleteTransacaoStmt = db.prepare('DELETE FROM transacoes WHERE id = ?');
-      for (const r of resgatesVinculados) {
-        deleteTransacaoStmt.run(r.id);
-      }
-
-      const result = db
-        .prepare("DELETE FROM usuarios WHERE id = ? AND tipo = 'EMPRESA'")
-        .run(usuarioId);
-
-      return result.changes > 0;
+  async delete(id) {
+    return withTransaction(async (client) => {
+      const result = await client.query("UPDATE usuarios SET ativo = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND tipo = 'EMPRESA' AND ativo", [Number(id)]);
+      await client.query('UPDATE vantagens SET ativa = FALSE WHERE empresa_id = $1', [Number(id)]);
+      await client.query('DELETE FROM sessoes WHERE usuario_id = $1', [Number(id)]);
+      return result.rowCount > 0;
     });
   }
 }
-

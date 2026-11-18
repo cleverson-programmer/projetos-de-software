@@ -1,71 +1,39 @@
 import crypto from 'node:crypto';
+import { promisify } from 'node:util';
+import bcrypt from 'bcryptjs';
 
-/**
- * Superclasse Usuario conforme Diagrama de Classes da Sprint 1.
- * Centraliza dados de autenticação e identificação (id, nome, email, login, senhaHash).
- */
+const scrypt = promisify(crypto.scrypt);
+const pbkdf2 = promisify(crypto.pbkdf2);
+
 export class Usuario {
-  constructor({
-    id = null,
-    nome,
-    email,
-    login,
-    senhaHash = null,
-    tipo,
-    createdAt = null,
-    updatedAt = null,
-  }) {
-    this.id = id;
-    this.nome = nome;
-    this.email = email;
-    this.login = login;
-    this.senhaHash = senhaHash;
-    this.tipo = tipo;
-    this.createdAt = createdAt;
-    this.updatedAt = updatedAt;
+  constructor({ id = null, nome, email, login, senhaHash = null, tipo, createdAt = null, updatedAt = null }) {
+    Object.assign(this, { id: id === null ? null : Number(id), nome, email, login, senhaHash, tipo, createdAt, updatedAt });
   }
 
-  /**
-   * Gera hash seguro da senha em texto puro (PBKDF2 / SHA-256).
-   */
-  static gerarHashSenha(senhaPura) {
+  static gerarHashSenha(senha) {
     const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.pbkdf2Sync(senhaPura, salt, 10000, 64, 'sha256').toString('hex');
-    return `pbkdf2$${salt}$${hash}`;
+    const hash = crypto.scryptSync(senha, salt, 64).toString('hex');
+    return 'scrypt$' + salt + '$' + hash;
   }
 
-  /**
-   * Verifica se o login e a senha informados correspondem às credenciais do usuário.
-   */
-  autenticar(loginInformado, senhaPura) {
-    if (this.login !== loginInformado || !this.senhaHash) {
-      return false;
+  static async verificarSenha(senha, stored) {
+    if (typeof senha !== 'string' || senha.length > 128 || typeof stored !== 'string') return false;
+    if (/^\$2[aby]\$/.test(stored)) {
+      try { return await bcrypt.compare(senha, stored); } catch { return false; }
     }
+    const [algorithm, salt, expected] = stored.split('$');
+    if (!['scrypt', 'pbkdf2'].includes(algorithm) || !/^[a-f0-9]{32}$/.test(salt || '') || !/^[a-f0-9]{128}$/.test(expected || '')) return false;
+    const actual = algorithm === 'scrypt'
+      ? await scrypt(senha, salt, 64)
+      : await pbkdf2(senha, salt, 10000, 64, 'sha256');
+    return crypto.timingSafeEqual(actual, Buffer.from(expected, 'hex'));
+  }
 
-    if (this.senhaHash.startsWith('pbkdf2$')) {
-      const [, salt, originalHash] = this.senhaHash.split('$');
-      const testHash = crypto.pbkdf2Sync(senhaPura, salt, 10000, 64, 'sha256').toString('hex');
-      return crypto.timingSafeEqual(Buffer.from(originalHash, 'hex'), Buffer.from(testHash, 'hex'));
-    }
-
-    // Compatibilidade com senhas de seed inicial ("123456")
-    if (this.senhaHash.startsWith('$2b$10$') && senhaPura === '123456') {
-      return true;
-    }
-
-    return this.senhaHash === senhaPura;
+  async autenticar(login, senha) {
+    return this.login === login && await Usuario.verificarSenha(senha, this.senhaHash);
   }
 
   toJSON() {
-    return {
-      id: this.id,
-      nome: this.nome,
-      email: this.email,
-      login: this.login,
-      tipo: this.tipo,
-      createdAt: this.createdAt,
-      updatedAt: this.updatedAt,
-    };
+    return { id: this.id, nome: this.nome, email: this.email, login: this.login, tipo: this.tipo, createdAt: this.createdAt, updatedAt: this.updatedAt };
   }
 }
-

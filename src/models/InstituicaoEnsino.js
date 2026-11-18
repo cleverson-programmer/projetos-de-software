@@ -3,7 +3,7 @@
  */
 export class InstituicaoEnsino {
   constructor({ id = null, nome, endereco }) {
-    this.id = id;
+    this.id = id === null ? null : Number(id);
     this.nome = nome;
     this.endereco = endereco;
   }

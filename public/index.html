@@ -1,250 +1,126 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistema de Moeda Estudantil - PUC Minas (Sprint 2)</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142d28">
+  <title>Moeda Estudantil — Seu mérito vale mais</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="container topbar-inner">
-      <div class="brand">
-        <span class="coin-badge">$</span>
-        <div>
-          <h1>Sistema de Moeda Estudantil</h1>
-          <p>Laboratório de Projeto de Software • PUC Minas — MVP Sprint 2 (Arquitetura MVC + DAO)</p>
-        </div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <section id="guest" class="guest-shell">
+    <aside class="welcome">
+      <a class="brand light" href="/"><span class="brand-mark" aria-hidden="true">m</span><span>moeda<span class="brand-sub">estudantil</span></span></a>
+      <div class="welcome-copy"><span class="eyebrow">RECONHECIMENTO QUE TRANSFORMA</span><h1>Seu mérito<br>vale mais.</h1><p>Boas atitudes se tornam novas oportunidades. Conecte seu esforço a recompensas de verdade.</p></div>
+      <div class="welcome-steps"><p><b>01</b> Professores reconhecem conquistas.</p><p><b>02</b> Alunos acumulam moedas.</p><p><b>03</b> Parceiros oferecem vantagens.</p></div>
+      <p class="welcome-footer">Uma comunidade que valoriza quem faz a diferença.</p>
+    </aside>
+    <main class="auth-area">
+      <div id="loading" class="muted">Carregando sua conta…</div>
+      <div id="login-view" class="auth-card hidden">
+        <span class="eyebrow">BEM-VINDO DE VOLTA</span><h2>Entre na sua conta</h2><p class="muted">Acompanhe suas conquistas e aproveite seus benefícios.</p>
+        <form id="login-form">
+          <label>Login<input name="login" required autocomplete="username" maxlength="100" placeholder="Seu login"></label>
+          <label>Senha<input name="senha" type="password" required maxlength="128" autocomplete="current-password" placeholder="Sua senha"></label>
+          <button class="button primary wide" type="submit">Entrar <span aria-hidden="true">→</span></button>
+        </form>
+        <p class="auth-switch">Ainda não participa? <button type="button" class="link" id="open-register">Crie sua conta</button></p>
+        <p class="note">Professores recebem suas credenciais pela instituição de ensino.</p>
       </div>
+      <div id="register-view" class="auth-card register-card hidden">
+        <span class="eyebrow">FAÇA PARTE</span><h2>Crie sua conta</h2><p class="muted">Escolha como você quer participar.</p>
+        <div class="segmented" aria-label="Tipo de cadastro"><button type="button" id="register-student" class="selected" aria-pressed="true">Sou aluno</button><button type="button" id="register-company" aria-pressed="false">Sou empresa</button></div>
+        <form id="register-form">
+          <label><span id="register-name-label">Nome completo</span><input name="nome" required maxlength="255" autocomplete="name"></label>
+          <label>Email<input name="email" type="email" required maxlength="255" autocomplete="email"></label>
+          <fieldset id="student-fields">
+            <div class="form-row"><label>CPF<input name="cpf" required maxlength="14" inputmode="numeric" placeholder="000.000.000-00"></label><label>RG<input name="rg" required minlength="4" maxlength="20" placeholder="Número do RG"></label></div>
+            <label>Endereço<input name="endereco" required maxlength="255" autocomplete="street-address"></label>
+            <label>Instituição de ensino<select name="instituicaoId" class="institution-select" required><option value="">Selecione</option></select></label>
+            <label>Curso<input name="curso" required maxlength="100"></label>
+          </fieldset>
+          <fieldset id="company-fields" class="hidden" disabled>
+            <label>CNPJ<input name="cnpj" required maxlength="18" inputmode="numeric" placeholder="00.000.000/0000-00"></label>
+            <label>Sobre a empresa<textarea name="descricao" maxlength="2000" rows="2" placeholder="Conte quais produtos ou serviços você oferece."></textarea></label>
+          </fieldset>
+          <div class="form-row"><label>Login<input name="login" required minlength="3" maxlength="100" pattern="[a-zA-Z0-9][a-zA-Z0-9._@-]{2,99}" autocomplete="username"></label><label>Senha<input name="senha" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label></div>
+          <p class="note">Use uma senha com pelo menos 8 caracteres.</p>
+          <button class="button primary wide" type="submit">Criar conta</button>
+        </form>
+        <p class="auth-switch">Já tem cadastro? <button class="link" id="open-login" type="button">Entrar</button></p>
+      </div>
+    </main>
+  </section>
 
-      <nav class="tabs" aria-label="Módulos do Sistema">
-        <button class="tab-btn active" data-tab="tab-alunos">🎓 CRUD de Alunos</button>
-        <button class="tab-btn" data-tab="tab-empresas">🏢 CRUD de Empresas Parceiras</button>
-        <button class="tab-btn" data-tab="tab-login">🔐 Autenticação (Login)</button>
-      </nav>
-    </div>
-  </header>
-
-  <main class="container main-content">
-    <div id="toast-feedback" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <!-- =================================================================== -->
-    <!-- ABA 1: MÓDULO DE ALUNOS (US01 e US03)                               -->
-    <!-- =================================================================== -->
-    <section id="tab-alunos" class="tab-panel active">
-      <div class="grid-layout">
-        <div class="card form-card">
-          <div class="card-header">
-            <h2 id="form-aluno-titulo">Cadastrar Novo Aluno</h2>
-            <span id="badge-modo-aluno" class="badge badge-info">Modo Criação</span>
+  <div id="workspace" class="workspace hidden">
+    <aside class="sidebar">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">m</span><span>moeda<span class="brand-sub">estudantil</span></span></a>
+      <span id="role-label" class="role-badge"></span>
+      <nav id="navigation" class="navigation" aria-label="Navegação da conta"></nav>
+      <div class="sidebar-bottom"><span id="sidebar-name"></span><button class="button ghost" id="logout" type="button">Sair da conta</button></div>
+    </aside>
+    <main class="main">
+      <header class="page-header"><div><span id="page-kicker" class="eyebrow">SUA COMUNIDADE, SUAS CONQUISTAS</span><h1 id="page-title">Visão geral</h1></div><button id="refresh" class="button secondary" type="button">↻ Atualizar</button></header>
+      <div id="identity" class="identity"></div>
+      <section id="panel-overview" class="panel" aria-label="Visão geral">
+        <div id="summary-cards" class="summary-grid"></div>
+        <div class="section-heading"><div><h2 id="overview-heading">Seu próximo passo</h2><p class="muted" id="overview-subtitle"></p></div></div>
+        <div id="quick-actions" class="quick-actions"></div>
+        <div class="section-heading"><h2 id="recent-title">Atividades recentes</h2></div>
+        <div id="recent-activity" class="card"></div>
+      </section>
+      <section id="panel-transfer" class="panel hidden" aria-label="Enviar moedas">
+        <div class="split-layout">
+          <div class="card"><h2>Reconheça uma conquista</h2><p class="muted">Escolha um aluno da sua instituição e conte o motivo do reconhecimento.</p>
+            <form id="transfer-form">
+              <label>Aluno<select name="alunoId" id="transfer-student" required><option value="">Selecione um aluno</option></select></label>
+              <label>Quantidade de moedas<input name="quantidade" type="number" required min="1" max="2147483647" step="1" inputmode="numeric"></label>
+              <label>Motivo do reconhecimento<textarea name="motivo" required maxlength="2000" rows="5" placeholder="O que este aluno fez de especial?"></textarea></label>
+              <button class="button primary" type="submit">Enviar reconhecimento</button>
+            </form>
           </div>
-
-          <form id="form-aluno" autocomplete="off">
-            <input type="hidden" id="aluno-id" />
-
-            <div class="form-group">
-              <label for="aluno-nome">Nome Completo *</label>
-              <input type="text" id="aluno-nome" required placeholder="Ex.: Kaio Silva" />
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="aluno-cpf">CPF *</label>
-                <input type="text" id="aluno-cpf" required maxlength="14" placeholder="000.000.000-00" />
-              </div>
-              <div class="form-group">
-                <label for="aluno-rg">RG (Opcional)</label>
-                <input type="text" id="aluno-rg" maxlength="13" placeholder="XX-99.999.999" />
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="aluno-email">E-mail *</label>
-              <input type="email" id="aluno-email" required placeholder="aluno@sga.pucminas.br" />
-            </div>
-
-            <div class="form-group">
-              <label for="aluno-endereco">Endereço Residencial *</label>
-              <input type="text" id="aluno-endereco" required placeholder="Rua, número, bairro, cidade - UF" />
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="aluno-instituicao">Instituição de Ensino *</label>
-                <select id="aluno-instituicao" required>
-                  <option value="">Carregando instituições...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="aluno-curso">Curso *</label>
-                <input type="text" id="aluno-curso" required placeholder="Ex.: Engenharia de Software" />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="aluno-login">Login de Acesso *</label>
-                <input type="text" id="aluno-login" required placeholder="Ex.: kaio.silva" />
-              </div>
-              <div class="form-group">
-                <label for="aluno-senha" id="label-aluno-senha">Senha *</label>
-                <input type="password" id="aluno-senha" required placeholder="Informe a senha" />
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="btn-salvar-aluno">Cadastrar Aluno</button>
-              <button type="button" class="btn btn-secondary hidden" id="btn-cancelar-aluno">Cancelar Edição</button>
-            </div>
+          <aside class="card accent-card"><span class="eyebrow">SEU SALDO</span><strong id="transfer-balance" class="large-value">0</strong><p>moedas para reconhecer bons exemplos</p><hr><h3>Mais um motivo para incentivar</h3><p>A cada semestre, você recebe 1.000 moedas. O saldo que não foi distribuído continua disponível.</p><p>O aluno receberá um email com a quantidade e sua mensagem.</p></aside>
+        </div>
+      </section>
+      <section id="panel-benefits" class="panel hidden" aria-label="Vantagens">
+        <div class="section-heading"><div><h2 id="benefits-title">Escolha sua próxima recompensa</h2><p class="muted" id="benefits-subtitle">Vantagens oferecidas pelas empresas da nossa comunidade.</p></div><button type="button" id="new-benefit" class="button primary hidden">+ Nova vantagem</button></div>
+        <form id="search-form" class="search-bar"><label class="sr-only" for="search">Buscar vantagens</label><input id="search" name="busca" type="search" placeholder="Busque por vantagem ou empresa" maxlength="100"><button class="button secondary" type="submit">Buscar</button></form>
+        <div id="benefit-grid" class="benefit-grid"></div>
+      </section>
+      <section id="panel-benefit-edit" class="panel hidden" aria-label="Cadastrar vantagem">
+        <div class="card editor-card"><h2 id="benefit-form-title">Nova vantagem</h2><p class="muted">Descreva o benefício e adicione uma foto para os alunos.</p>
+          <form id="benefit-form">
+            <label>Nome da vantagem<input name="nome" required maxlength="150"></label>
+            <label>Descrição<textarea name="descricao" required maxlength="2000" rows="4"></textarea></label>
+            <label>Custo em moedas<input name="custoMoedas" type="number" required min="1" max="2147483647" step="1"></label>
+            <label>Foto do produto<input id="benefit-file" type="file" accept="image/jpeg,image/png,image/webp"></label>
+            <p class="note">Envie JPEG, PNG ou WebP de até 2 MB, ou informe uma foto por URL HTTPS.</p>
+            <label>URL da foto<input name="fotoUrl" id="benefit-photo-url" type="text" required maxlength="500" placeholder="https://…"></label>
+            <img id="photo-preview" class="photo-preview hidden" alt="Prévia da foto da vantagem">
+            <label class="check-label"><input name="ativa" type="checkbox" checked>Disponível para novos resgates</label>
+            <div class="button-row"><button class="button primary" type="submit">Salvar vantagem</button><button class="button secondary" id="cancel-benefit" type="button">Cancelar</button></div>
           </form>
         </div>
+      </section>
+      <section id="panel-coupons" class="panel hidden" aria-label="Cupons">
+        <div id="coupon-check" class="card hidden"><h2>Conferir um cupom</h2><form id="check-coupon-form" class="search-bar"><label class="sr-only" for="coupon-code">Código do cupom</label><input name="codigo" id="coupon-code" required maxlength="50" placeholder="Digite o código apresentado pelo aluno"><button class="button primary" type="submit">Conferir</button></form><div id="checked-coupon"></div></div>
+        <div class="section-heading"><div><h2 id="coupons-title">Meus cupons</h2><p class="muted" id="coupons-subtitle">Apresente o código no estabelecimento para aproveitar sua vantagem.</p></div></div>
+        <div id="coupon-list" class="coupon-list"></div><button id="more-coupons" class="button secondary hidden" type="button">Carregar mais cupons</button>
+      </section>
+      <section id="panel-statement" class="panel hidden" aria-label="Extrato">
+        <div class="section-heading"><div><h2>Seu histórico de moedas</h2><p class="muted">Recebimentos, envios e trocas registrados na sua conta.</p></div><span id="statement-balance" class="balance-pill"></span></div>
+        <div class="card table-wrapper"><table><thead><tr><th>Data</th><th>Movimentação</th><th>Detalhes</th><th>Moedas</th></tr></thead><tbody id="statement-body"></tbody></table></div><button id="more-statement" class="button secondary hidden" type="button">Carregar mais movimentações</button>
+      </section>
+      <section id="panel-account" class="panel hidden" aria-label="Minha conta">
+        <div class="card editor-card"><h2>Meu cadastro</h2><form id="account-form"></form></div>
+        <details class="card danger-zone"><summary>Desativar minha conta</summary><p>Você deixará de acessar a conta. Seu histórico e os registros das moedas serão preservados.</p><form id="deactivate-form"><label>Confirme sua senha<input name="senhaAtual" type="password" required maxlength="128" autocomplete="current-password"></label><label class="check-label"><input type="checkbox" required>Entendo e quero desativar minha conta.</label><button class="button danger" type="submit">Desativar conta</button></form></details>
+      </section>
+    </main>
+  </div>
 
-        <div class="card table-card">
-          <div class="card-header">
-            <h2>Alunos Cadastrados</h2>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-recarregar-alunos">↻ Atualizar Lista</button>
-          </div>
-
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Aluno / E-mail</th>
-                  <th>CPF / RG</th>
-                  <th>Instituição / Curso</th>
-                  <th>Login</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tabela-alunos-body">
-                <tr>
-                  <td colspan="6" class="empty-row">Carregando alunos...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- =================================================================== -->
-    <!-- ABA 2: MÓDULO DE EMPRESAS PARCEIRAS (US09 e US10)                   -->
-    <!-- =================================================================== -->
-    <section id="tab-empresas" class="tab-panel">
-      <div class="grid-layout">
-        <div class="card form-card">
-          <div class="card-header">
-            <h2 id="form-empresa-titulo">Cadastrar Empresa Parceira</h2>
-            <span id="badge-modo-empresa" class="badge badge-info">Modo Criação</span>
-          </div>
-
-          <form id="form-empresa" autocomplete="off">
-            <input type="hidden" id="empresa-id" />
-
-            <div class="form-group">
-              <label for="empresa-nome">Razão Social / Nome Fantasia *</label>
-              <input type="text" id="empresa-nome" required placeholder="Ex.: Cantina Universitária Gourmet" />
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="empresa-cnpj">CNPJ *</label>
-                <input type="text" id="empresa-cnpj" required maxlength="18" placeholder="00.000.000/0001-00" />
-              </div>
-              <div class="form-group">
-                <label for="empresa-email">E-mail Corporativo *</label>
-                <input type="email" id="empresa-email" required placeholder="contato@empresa.com.br" />
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="empresa-descricao">Descrição da Parceria / Atuação</label>
-              <textarea id="empresa-descricao" rows="3" placeholder="Descreva os produtos, serviços ou benefícios oferecidos aos estudantes..."></textarea>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="empresa-login">Login de Acesso *</label>
-                <input type="text" id="empresa-login" required placeholder="Ex.: cantina.gourmet" />
-              </div>
-              <div class="form-group">
-                <label for="empresa-senha" id="label-empresa-senha">Senha *</label>
-                <input type="password" id="empresa-senha" required placeholder="Informe a senha" />
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="btn-salvar-empresa">Cadastrar Empresa</button>
-              <button type="button" class="btn btn-secondary hidden" id="btn-cancelar-empresa">Cancelar Edição</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="card table-card">
-          <div class="card-header">
-            <h2>Empresas Parceiras Cadastradas</h2>
-            <button type="button" class="btn btn-outline btn-sm" id="btn-recarregar-empresas">↻ Atualizar Lista</button>
-          </div>
-
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Empresa / E-mail</th>
-                  <th>CNPJ</th>
-                  <th>Descrição</th>
-                  <th>Login</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tabela-empresas-body">
-                <tr>
-                  <td colspan="6" class="empty-row">Carregando empresas parceiras...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- =================================================================== -->
-    <!-- ABA 3: TESTE DE AUTENTICAÇÃO / LOGIN (US02)                         -->
-    <!-- =================================================================== -->
-    <section id="tab-login" class="tab-panel">
-      <div class="login-wrapper">
-        <div class="card login-card">
-          <div class="card-header">
-            <h2>Autenticação de Usuário (US02)</h2>
-          </div>
-          <p class="helper-text">
-            Valide as credenciais de qualquer <strong>Aluno</strong>, <strong>Empresa Parceira</strong> ou <strong>Professor</strong>.
-            (Contas iniciais do seed utilizam a senha <code>123456</code>).
-          </p>
-
-          <form id="form-login" autocomplete="off">
-            <div class="form-group">
-              <label for="login-usuario">Login</label>
-              <input type="text" id="login-usuario" required placeholder="Ex.: kaio.silva ou cantina.gourmet" />
-            </div>
-
-            <div class="form-group">
-              <label for="login-senha">Senha</label>
-              <input type="password" id="login-senha" required placeholder="Informe sua senha" />
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-block">Entrar no Sistema</button>
-          </form>
-
-          <div id="resultado-login" class="auth-result hidden"></div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <script src="/app.js" type="module"></script>
+  <dialog id="redeem-dialog" class="modal"><div id="redeem-content"></div><div class="button-row"><button class="button primary" id="confirm-redeem" type="button">Confirmar resgate</button><button class="button secondary" data-close="redeem-dialog" type="button">Cancelar</button></div></dialog>
+  <dialog id="coupon-dialog" class="modal"><div id="coupon-detail"></div><button class="button secondary" data-close="coupon-dialog" type="button">Fechar</button></dialog>
 </body>
 </html>
-

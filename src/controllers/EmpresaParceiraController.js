@@ -1,33 +1,11 @@
-import { EmpresaParceiraService } from '../services/EmpresaParceiraService.js';
+import { ContaController } from './ContaController.js';
+import { fail } from '../utils/validation.js';
 
-export class EmpresaParceiraController {
-  constructor(service = new EmpresaParceiraService()) {
-    this.service = service;
-  }
-
-  listar(_req, res) {
-    const empresas = this.service.listarEmpresas();
-    res.sendJson(200, empresas);
-  }
-
-  buscarPorId(_req, res, id) {
-    const empresa = this.service.buscarPorId(id);
-    res.sendJson(200, empresa);
-  }
-
-  criar(req, res) {
-    const novaEmpresa = this.service.cadastrarEmpresa(req.body || {});
-    res.sendJson(201, novaEmpresa);
-  }
-
-  atualizar(req, res, id) {
-    const empresaAtualizada = this.service.atualizarEmpresa(id, req.body || {});
-    res.sendJson(200, empresaAtualizada);
-  }
-
-  excluir(_req, res, id) {
-    this.service.excluirEmpresa(id);
-    res.sendJson(200, { message: 'Empresa parceira excluída com sucesso.' });
-  }
+export class EmpresaParceiraController extends ContaController {
+  validar(req, id) { if (req.user?.tipo !== 'EMPRESA' || req.user.id !== Number(id)) fail(403, 'Acesso permitido apenas ao seu cadastro.'); }
+  async criar(req, res) { return this.cadastrar(req, res, 'EMPRESA'); }
+  async buscarPorId(req, res, id) { this.validar(req, id); return this.perfil(req, res); }
+  async atualizar(req, res, id) { this.validar(req, id); return super.atualizar(req, res); }
+  async excluir(req, res, id) { this.validar(req, id); return this.desativar(req, res); }
+  async listar(req, res) { if (!req.user) fail(401, 'Autenticação necessária.'); res.sendJson(200, [await this.contas.perfil(req.user)]); }
 }
-

@@ -32,3 +32,10 @@ postgres_data/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Certificados locais e artefatos de testes
+certs/
+coverage/
+
+# Listas de provisionamento podem conter senhas iniciais.
+*.professores.json

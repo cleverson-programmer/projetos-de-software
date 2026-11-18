@@ -1,0 +1,13 @@
+.git
+node_modules
+.env
+.env.*
+docs
+tests
+*.log
+*.professores.json
+database/*.db*
+database/*.sqlite*
+database/schema_sqlite.sql
+database/build_sqlite_db.mjs
+database/init_postgres.sql

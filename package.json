@@ -5,9 +5,17 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "db:init": "node database/build_sqlite_db.mjs",
-    "test:dao": "node src/dao/test_dao.js",
-    "start": "node src/server.js"
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "db:init": "node --env-file-if-exists=.env database/migrate.mjs",
+    "db:migrate": "node --env-file-if-exists=.env database/migrate.mjs",
+    "db:seed": "node --env-file-if-exists=.env database/seed.mjs",
+    "db:import:sqlite": "node --env-file-if-exists=.env database/import_sqlite.mjs",
+    "test": "node --env-file-if-exists=.env --test --test-concurrency=1 tests/*.test.js",
+    "test:dao": "node --env-file-if-exists=.env src/dao/test_dao.js",
+    "build": "node scripts/check.mjs",
+    "check": "node scripts/check.mjs",
+    "jobs:once": "node --env-file-if-exists=.env database/jobs.mjs",
+    "professores:importar": "node --env-file-if-exists=.env database/import_professores.mjs"
   },
   "keywords": [
     "moeda-estudantil",
@@ -15,6 +23,13 @@
     "dao",
     "puc-minas"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "nodemailer": "^10.6.0",
+    "pg": "^8.23.1"
+  }
 }
-

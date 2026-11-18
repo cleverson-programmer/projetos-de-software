@@ -1,51 +1,43 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
+import pg from 'pg';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { Pool } = pg;
+let pool = null;
 
-const DB_PATH = path.resolve(__dirname, '../../database/moeda_estudantil.db');
-const SCHEMA_PATH = path.resolve(__dirname, '../../database/schema_sqlite.sql');
-
-let dbInstance = null;
-
-/**
- * Retorna a instância única (Singleton) de conexão com o banco de dados SQLite.
- * Garante que as chaves estrangeiras (PRAGMA foreign_keys = ON) estejam ativas
- * para manter a integridade referencial e o funcionamento do ON DELETE CASCADE.
- */
 export function getDatabase() {
-  if (!dbInstance) {
-    const dbExists = fs.existsSync(DB_PATH);
-    dbInstance = new DatabaseSync(DB_PATH);
-    dbInstance.exec('PRAGMA foreign_keys = ON;');
-
-    if (!dbExists && fs.existsSync(SCHEMA_PATH)) {
-      const schemaSql = fs.readFileSync(SCHEMA_PATH, 'utf8');
-      dbInstance.exec(schemaSql);
+  if (!pool) {
+    if (!process.env.DATABASE_URL) throw new Error('Configure DATABASE_URL para conectar ao PostgreSQL.');
+    const config = {
+      connectionString: process.env.DATABASE_URL,
+      max: 10, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000,
+    };
+    if (process.env.DATABASE_SCHEMA) {
+      if (!/^[a-z_][a-z0-9_]*$/.test(process.env.DATABASE_SCHEMA)) throw new Error('DATABASE_SCHEMA inválido.');
+      config.options = '-c search_path=' + process.env.DATABASE_SCHEMA;
     }
+    pool = new Pool(config);
+    pool.on('error', (error) => console.error('Erro em conexão PostgreSQL ociosa:', error.code || 'DATABASE_ERROR'));
   }
-  return dbInstance;
+  return pool;
 }
 
-/**
- * Executa uma operação dentro de uma transação atômica (BEGIN / COMMIT / ROLLBACK).
- * Essencial para a estratégia de herança JOINED (ex.: inserir/atualizar em `usuarios` e `alunos`).
- *
- * @param {(db: DatabaseSync) => any} callback
- */
-export function withTransaction(callback) {
-  const db = getDatabase();
-  db.exec('BEGIN IMMEDIATE TRANSACTION;');
+/** Toda a transação usa o MESMO cliente, inclusive rollback e liberação. */
+export async function withTransaction(callback) {
+  const client = await getDatabase().connect();
   try {
-    const result = callback(db);
-    db.exec('COMMIT;');
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
     return result;
   } catch (error) {
-    db.exec('ROLLBACK;');
+    await client.query('ROLLBACK');
     throw error;
+  } finally {
+    client.release();
   }
 }
 
+export async function closeDatabase() {
+  const current = pool;
+  pool = null;
+  if (current) await current.end();
+}

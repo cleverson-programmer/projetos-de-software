@@ -5,8 +5,8 @@ export class InstituicaoEnsinoController {
     this.service = service;
   }
 
-  listar(_req, res) {
-    const instituicoes = this.service.listarInstituicoes();
+  async listar(_req, res) {
+    const instituicoes = await this.service.listarInstituicoes();
     res.sendJson(200, instituicoes);
   }
 }

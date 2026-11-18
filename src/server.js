@@ -1,153 +1,187 @@
 import http from 'node:http';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getDatabase, closeDatabase } from './config/database.js';
+import { ContaController } from './controllers/ContaController.js';
+import { OperacaoController } from './controllers/OperacaoController.js';
+import { SessionService } from './services/SessionService.js';
+import { sincronizarCreditos } from './services/CreditoService.js';
+import { iniciarJobs } from './services/JobService.js';
+import { InstituicaoEnsinoDAO } from './dao/InstituicaoEnsinoDAO.js';
+import { fail } from './utils/validation.js';
 
-import { InstituicaoEnsinoController } from './controllers/InstituicaoEnsinoController.js';
-import { AlunoController } from './controllers/AlunoController.js';
-import { EmpresaParceiraController } from './controllers/EmpresaParceiraController.js';
-import { AuthController } from './controllers/AuthController.js';
+const filename = fileURLToPath(import.meta.url);
+const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
+const conta = new ContaController();
+const operacoes = new OperacaoController();
+const sessoes = new SessionService();
+const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PUBLIC_DIR = path.resolve(__dirname, '../public');
-
-const instituicaoController = new InstituicaoEnsinoController();
-const alunoController = new AlunoController();
-const empresaController = new EmpresaParceiraController();
-const authController = new AuthController();
-
-const MIME_TYPES = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'application/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
-};
-
-function parseJsonBody(req) {
+async function body(req) {
+  const max = 3 * 1024 * 1024;
+  if (!req.headers['content-type']?.toLowerCase().startsWith('application/json')) fail(415, 'Envie os dados em formato JSON.');
   return new Promise((resolve, reject) => {
-    let raw = '';
+    let length = 0;
+    let chunks = [];
+    let large = false;
     req.on('data', (chunk) => {
-      raw += chunk;
-    });
-    req.on('end', () => {
-      if (!raw) return resolve({});
-      try {
-        resolve(JSON.parse(raw));
-      } catch {
-        const err = new Error('JSON inválido no corpo da requisição.');
-        err.statusCode = 400;
-        reject(err);
-      }
+      length += chunk.length;
+      if (length > max) { large = true; chunks = []; }
+      if (!large) chunks.push(chunk);
     });
     req.on('error', reject);
+    req.on('end', () => {
+      if (large) return reject(Object.assign(new Error('Dados maiores que o limite de 3 MB.'), { statusCode: 413 }));
+      try {
+        const value = length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
+        resolve(value);
+      } catch {
+        reject(Object.assign(new Error('JSON inválido.'), { statusCode: 400 }));
+      }
+    });
   });
+}
+
+function verificarOrigem(req) {
+  const origin = req.headers.origin;
+  if (!origin) return;
+  let parsed;
+  try { parsed = new URL(origin); } catch { fail(403, 'Origem da requisição inválida.'); }
+  if (process.env.APP_URL) {
+    if (parsed.origin !== new URL(process.env.APP_URL).origin) fail(403, 'Origem da requisição não permitida.');
+  } else if (parsed.host !== req.headers.host) fail(403, 'Origem da requisição não permitida.');
 }
 
 export function createAppServer() {
-  return http.createServer(async (req, res) => {
-    // Helper para envio padronizado de respostas JSON
-    res.sendJson = (statusCode, payload) => {
-      res.writeHead(statusCode, {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      });
-      res.end(JSON.stringify(payload));
+  const server = http.createServer(async (req, res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: blob: data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+    res.sendJson = (status, data) => {
+      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(data));
     };
-
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      });
-      return res.end();
-    }
-
-    const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    const pathname = urlObj.pathname;
-
     try {
-      // Rotas da API REST
-      if (pathname.startsWith('/api/')) {
-        if (['POST', 'PUT'].includes(req.method)) {
-          req.body = await parseJsonBody(req);
-        }
+      const url = new URL(req.url, 'http://localhost');
+      const route = url.pathname;
+      req.query = url.searchParams;
+      if (route === '/health' && req.method === 'GET') {
+        try { await getDatabase().query('SELECT 1'); return res.sendJson(200, { status: 'ok' }); }
+        catch { return res.sendJson(503, { status: 'unavailable' }); }
+      }
+      if (route.startsWith('/api/')) {
+        const changing = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+        if (changing) { verificarOrigem(req); req.body = await body(req); }
+        if (req.method === 'GET' && route === '/api/instituicoes') return res.sendJson(200, await new InstituicaoEnsinoDAO().findAll());
+        if (req.method === 'POST' && route === '/api/auth/login') return await conta.login(req, res);
+        if (req.method === 'POST' && route === '/api/alunos') return await conta.cadastrar(req, res, 'ALUNO');
+        if (req.method === 'POST' && route === '/api/empresas') return await conta.cadastrar(req, res, 'EMPRESA');
 
-        // Instituições de Ensino
-        if (pathname === '/api/instituicoes' && req.method === 'GET') {
-          return instituicaoController.listar(req, res);
+        await sessoes.autenticar(req);
+        if (changing) sessoes.verificarCSRF(req);
+        if (req.method === 'GET' && ['/api/auth/me', '/api/conta'].includes(route)) {
+          if (req.user.tipo === 'PROFESSOR') await sincronizarCreditos(req.user.id);
+          return await conta.perfil(req, res);
         }
+        if (req.method === 'POST' && route === '/api/auth/logout') return await conta.sair(req, res);
+        if (req.method === 'PUT' && route === '/api/conta') return await conta.atualizar(req, res);
+        if (req.method === 'DELETE' && route === '/api/conta') return await conta.desativar(req, res);
+        if (req.method === 'GET' && route === '/api/alunos') return await conta.alunos(req, res);
 
-        // Autenticação
-        if (pathname === '/api/auth/login' && req.method === 'POST') {
-          return authController.login(req, res);
+        const self = route.match(/^\/api\/(alunos|empresas)\/(\d+)$/);
+        if (self) {
+          const expected = self[1] === 'alunos' ? 'ALUNO' : 'EMPRESA';
+          if (req.user.tipo !== expected || req.user.id !== Number(self[2])) fail(403, 'Você só pode acessar seu próprio cadastro.');
+          if (req.method === 'GET') return await conta.perfil(req, res);
+          if (req.method === 'PUT') return await conta.atualizar(req, res);
+          if (req.method === 'DELETE') return await conta.desativar(req, res);
         }
-
-        // CRUD Alunos
-        if (pathname === '/api/alunos') {
-          if (req.method === 'GET') return alunoController.listar(req, res);
-          if (req.method === 'POST') return alunoController.criar(req, res);
+        if (req.method === 'GET' && route === '/api/empresas') {
+          const { rows } = await getDatabase().query('SELECT u.id, u.nome, e.descricao FROM empresas_parceiras e JOIN usuarios u ON u.id = e.usuario_id WHERE u.ativo ORDER BY u.nome');
+          return res.sendJson(200, rows.map((row) => ({ ...row, id: Number(row.id) })));
         }
-
-        const alunoMatch = pathname.match(/^\/api\/alunos\/(\d+)$/);
-        if (alunoMatch) {
-          const id = Number(alunoMatch[1]);
-          if (req.method === 'GET') return alunoController.buscarPorId(req, res, id);
-          if (req.method === 'PUT') return alunoController.atualizar(req, res, id);
-          if (req.method === 'DELETE') return alunoController.excluir(req, res, id);
+        if (req.method === 'GET' && route === '/api/extrato') return await operacoes.extrato(req, res);
+        if (req.method === 'POST' && route === '/api/transferencias') return await operacoes.transferir(req, res);
+        if (req.method === 'POST' && route === '/api/resgates') return await operacoes.resgatar(req, res);
+        if (req.method === 'GET' && route === '/api/cupons') return await operacoes.listarCupons(req, res);
+        if (req.method === 'GET' && route === '/api/cupons/conferir') return await operacoes.conferir(req, res);
+        const cupom = route.match(/^\/api\/cupons\/(\d+)\/(confirmar|reenviar)$/);
+        if (cupom && req.method === 'POST') {
+          return cupom[2] === 'confirmar' ? await operacoes.confirmar(req, res, cupom[1]) : await operacoes.reenviar(req, res, cupom[1]);
         }
-
-        // CRUD Empresas Parceiras
-        if (pathname === '/api/empresas') {
-          if (req.method === 'GET') return empresaController.listar(req, res);
-          if (req.method === 'POST') return empresaController.criar(req, res);
-        }
-
-        const empresaMatch = pathname.match(/^\/api\/empresas\/(\d+)$/);
-        if (empresaMatch) {
-          const id = Number(empresaMatch[1]);
-          if (req.method === 'GET') return empresaController.buscarPorId(req, res, id);
-          if (req.method === 'PUT') return empresaController.atualizar(req, res, id);
-          if (req.method === 'DELETE') return empresaController.excluir(req, res, id);
-        }
-
-        return res.sendJson(404, { error: 'Rota da API não encontrada.' });
+        if (req.method === 'GET' && route === '/api/vantagens') return await operacoes.listarVantagens(req, res);
+        if (req.method === 'POST' && route === '/api/vantagens') return await operacoes.criarVantagem(req, res);
+        if (req.method === 'POST' && route === '/api/vantagens/foto') return await operacoes.enviarFoto(req, res);
+        const vantagem = route.match(/^\/api\/vantagens\/(\d+)$/);
+        if (vantagem && req.method === 'PUT') return await operacoes.atualizarVantagem(req, res, vantagem[1]);
+        if (vantagem && req.method === 'DELETE') return await operacoes.desativarVantagem(req, res, vantagem[1]);
+        const foto = route.match(/^\/api\/fotos\/([a-f0-9-]{36})$/i);
+        if (foto && req.method === 'GET') return await operacoes.foto(req, res, foto[1]);
+        fail(404, 'Funcionalidade não encontrada.');
       }
 
-      // Arquivos estáticos do Front-end (public/)
-      const relativePath = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-      const filePath = path.resolve(PUBLIC_DIR, relativePath);
-
-      if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end('Página não encontrada.');
-      }
-
-      const ext = path.extname(filePath).toLowerCase();
-      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-      const content = fs.readFileSync(filePath);
-      res.writeHead(200, { 'Content-Type': contentType });
-      return res.end(content);
+      if (!['GET', 'HEAD'].includes(req.method)) fail(405, 'Método não permitido.');
+      const relative = route === '/' ? 'index.html' : decodeURIComponent(route).replace(/^\/+/, '');
+      const file = path.resolve(publicDir, relative);
+      if (!file.startsWith(path.resolve(publicDir) + path.sep) || !mime[path.extname(file)]) fail(404, 'Página não encontrada.');
+      let content;
+      try { content = await fs.readFile(file); } catch { fail(404, 'Página não encontrada.'); }
+      res.writeHead(200, { 'Content-Type': mime[path.extname(file)], 'Cache-Control': 'no-cache' });
+      res.end(req.method === 'HEAD' ? undefined : content);
     } catch (error) {
-      const status = error.statusCode || 500;
-      return res.sendJson(status, {
-        error: error.message || 'Erro interno no servidor.',
-      });
+      if (res.headersSent) { res.end(); return; }
+      const errors = {
+        '23505': [409, 'Já existe um cadastro com este email, login, CPF ou CNPJ.'],
+        '23503': [409, 'O cadastro está vinculado a outros registros.'],
+        '23514': [400, 'Confira os campos obrigatórios e os valores informados.'],
+        '22003': [409, 'O valor ultrapassa o limite permitido.'],
+        '22P02': [400, 'Identificador ou formato de dado inválido.'],
+      };
+      const [status, message] = errors[error.code] || [error.statusCode || 500, error.statusCode ? error.message : 'Não foi possível concluir a operação. Tente novamente.'];
+      if (status >= 500) console.error('Erro de requisição:', error.code || error.name);
+      res.sendJson(status, { error: message });
     }
   });
+  server.requestTimeout = 30000;
+  server.headersTimeout = 15000;
+  return server;
 }
 
-// Inicialização direta quando executado via `npm start` ou `node src/server.js`
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
-  const PORT = process.env.PORT || 3000;
+export async function startServer() {
+  await getDatabase().query('SELECT 1');
+  await sincronizarCreditos();
   const server = createAppServer();
-  server.listen(PORT, () => {
-    console.log(`Servidor MVC rodando em http://localhost:${PORT}`);
+  const port = Number(process.env.PORT || 3000);
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '0.0.0.0', resolve);
   });
+  const stopJobs = iniciarJobs();
+  console.log('Moeda Estudantil disponível na porta ' + port + '.');
+  let closing = false;
+  async function shutdown() {
+    if (closing) return;
+    closing = true;
+    const timeout = setTimeout(() => process.exit(1), 25000);
+    timeout.unref();
+    const closed = new Promise((resolve) => server.close(resolve));
+    server.closeIdleConnections();
+    try {
+      await stopJobs();
+      await closed;
+      await closeDatabase();
+      clearTimeout(timeout);
+    } catch (error) { console.error('Falha ao encerrar:', error.code || error.name); process.exitCode = 1; }
+  }
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+  return server;
 }
 
+if (process.argv[1] && path.resolve(process.argv[1]) === filename) {
+  try { await startServer(); }
+  catch (error) { console.error('Falha na inicialização:', error.code || error.message); await closeDatabase(); process.exitCode = 1; }
+}
