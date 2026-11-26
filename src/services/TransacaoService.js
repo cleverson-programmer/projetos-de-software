@@ -2,11 +2,13 @@ import { TransacaoDAO } from '../dao/TransacaoDAO.js';
 import { ProfessorDAO } from '../dao/ProfessorDAO.js';
 import { AlunoDAO } from '../dao/AlunoDAO.js';
 import { EmpresaParceiraDAO } from '../dao/EmpresaParceiraDAO.js';
+import { VantagemDAO } from '../dao/VantagemDAO.js';
 import { EmailService } from './EmailService.js';
+import { criarEstrategiasExtrato } from './extrato/ExtratoEstrategias.js';
 import { CREDITO_SEMESTRAL_MOEDAS } from '../config/regras.js';
 import { criarErro } from '../utils/erros.js';
 import { semestreAtual } from '../utils/semestre.js';
-import { inteiroPositivo, textoObrigatorio } from '../utils/validacao.js';
+import { inteiroPositivo } from '../utils/validacao.js';
 
 const MOTIVO_TAMANHO_MAXIMO = 1000;
 
@@ -16,55 +18,63 @@ export class TransacaoService {
     professorDAO = new ProfessorDAO(),
     alunoDAO = new AlunoDAO(),
     empresaDAO = new EmpresaParceiraDAO(),
-    emailService = new EmailService()
+    emailService = new EmailService(),
+    vantagemDAO = new VantagemDAO(),
+    estrategiasExtrato = null
   ) {
     this.transacaoDAO = transacaoDAO;
     this.professorDAO = professorDAO;
     this.alunoDAO = alunoDAO;
-    this.empresaDAO = empresaDAO;
     this.emailService = emailService;
+    this.vantagemDAO = vantagemDAO;
+    this.estrategiasExtrato =
+      estrategiasExtrato ??
+      criarEstrategiasExtrato({ transacaoDAO, professorDAO, alunoDAO, empresaDAO });
   }
 
   /**
    * Professor envia moedas a um aluno (motivo obrigatório, saldo suficiente).
-   * A transação é gravada de forma atômica; o e-mail ao aluno só é enviado depois do COMMIT e,
-   * se falhar, a transação permanece (`emailEnviado: false`).
+   * Delega a validação de domínio ao Information Expert (`Professor.enviarMoedas`)
+   * e persiste de forma atômica no `TransacaoDAO`. O e-mail ao aluno só é enviado
+   * depois do COMMIT e, se falhar, a transação permanece (`emailEnviado: false`).
    *
    * @param {number} professorId professor autenticado
    * @param {{ alunoId: unknown, quantidade: unknown, motivo: unknown }} dados
    */
   async enviarMoedas(professorId, { alunoId, quantidade, motivo } = {}) {
-    const qtd = inteiroPositivo(quantidade);
-    if (qtd === null) {
-      throw criarErro(400, 'A quantidade de moedas deve ser um número inteiro maior que zero.');
-    }
-    const motivoLimpo = textoObrigatorio(motivo);
-    if (motivoLimpo === null) {
-      throw criarErro(400, 'O motivo do reconhecimento é obrigatório.');
-    }
-    if (motivoLimpo.length > MOTIVO_TAMANHO_MAXIMO) {
-      throw criarErro(400, `O motivo deve ter no máximo ${MOTIVO_TAMANHO_MAXIMO} caracteres.`);
-    }
     const idAluno = inteiroPositivo(alunoId);
     if (idAluno === null) {
       throw criarErro(400, 'Informe o aluno que receberá as moedas.');
     }
-    if (!this.alunoDAO.findById(idAluno)) {
+
+    const professor = this.professorDAO.findById(professorId);
+    if (!professor) {
+      throw criarErro(404, 'Professor não encontrado.');
+    }
+
+    const aluno = this.alunoDAO.findById(idAluno);
+    if (!aluno) {
       throw criarErro(404, 'Aluno não encontrado.');
     }
 
+    // GRASP (Information Expert): Professor valida quantidade, motivo e saldo e cria TransferenciaMoedas
+    const transferenciaDominio = professor.enviarMoedas(aluno, quantidade, motivo);
+    if (transferenciaDominio.motivo.length > MOTIVO_TAMANHO_MAXIMO) {
+      throw criarErro(400, `O motivo deve ter no máximo ${MOTIVO_TAMANHO_MAXIMO} caracteres.`);
+    }
+
     const resultado = this.transacaoDAO.registrarTransferencia({
-      professorId,
-      alunoId: idAluno,
-      quantidade: qtd,
-      motivo: motivoLimpo,
+      professorId: transferenciaDominio.professorId,
+      alunoId: transferenciaDominio.alunoId,
+      quantidade: transferenciaDominio.quantidade,
+      motivo: transferenciaDominio.motivo,
     });
 
     const emailEnviado = await this.emailService.notificarRecebimento({
       aluno: resultado.aluno,
       professor: resultado.professor,
-      quantidade: qtd,
-      motivo: motivoLimpo,
+      quantidade: transferenciaDominio.quantidade,
+      motivo: transferenciaDominio.motivo,
       novoSaldo: resultado.saldoAluno,
     });
 
@@ -84,8 +94,9 @@ export class TransacaoService {
   }
 
   /**
-   * Aluno resgata uma vantagem: debita o saldo, gera o código do cupom e, depois do COMMIT,
-   * envia o cupom ao aluno e a conferência ao parceiro (ambos com o MESMO código).
+   * Aluno resgata uma vantagem: delega a validação de domínio ao Information Expert
+   * (`Aluno.resgatarVantagem`), persiste atomicamente com código de cupom único e,
+   * depois do COMMIT, envia o cupom ao aluno e a conferência ao parceiro (MESMO código).
    *
    * @param {number} alunoId aluno autenticado
    * @param {string | number} vantagemId
@@ -95,6 +106,15 @@ export class TransacaoService {
     if (idVantagem === null) {
       throw criarErro(404, 'Vantagem não encontrada.');
     }
+
+    const alunoAtual = this.alunoDAO.findById(alunoId);
+    if (!alunoAtual) {
+      throw criarErro(404, 'Aluno não encontrado.');
+    }
+
+    const vantagemAtual = this.vantagemDAO.findById(idVantagem);
+    // GRASP (Information Expert): Aluno valida existência, disponibilidade e saldo da vantagem
+    alunoAtual.resgatarVantagem(vantagemAtual);
 
     const { resgate, vantagem, novoSaldo, aluno, empresa } = this.transacaoDAO.registrarResgate({
       alunoId,
@@ -176,26 +196,10 @@ export class TransacaoService {
    * @param {'PROFESSOR' | 'ALUNO' | 'EMPRESA'} tipo
    */
   gerarExtrato(usuarioId, tipo) {
-    if (tipo === 'PROFESSOR') {
-      const professor = this.professorDAO.findById(usuarioId);
-      if (!professor) throw criarErro(404, 'Professor não encontrado.');
-      professor.transacoes = this.transacaoDAO.buscarExtratoProfessor(professor.id);
-      return { tipo, ...professor.consultarExtrato() };
+    const estrategia = this.estrategiasExtrato[tipo];
+    if (!estrategia) {
+      throw criarErro(403, 'Perfil sem extrato.');
     }
-
-    if (tipo === 'ALUNO') {
-      const aluno = this.alunoDAO.findById(usuarioId);
-      if (!aluno) throw criarErro(404, 'Aluno não encontrado.');
-      aluno.transacoes = this.transacaoDAO.buscarExtratoAluno(aluno.id);
-      return { tipo, ...aluno.consultarExtrato() };
-    }
-
-    if (tipo === 'EMPRESA') {
-      const empresa = this.empresaDAO.findById(usuarioId);
-      if (!empresa) throw criarErro(404, 'Empresa parceira não encontrada.');
-      return { tipo, transacoes: this.transacaoDAO.buscarResgatesDaEmpresa(empresa.id) };
-    }
-
-    throw criarErro(403, 'Perfil sem extrato.');
+    return estrategia.gerar(usuarioId);
   }
 }

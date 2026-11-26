@@ -1,9 +1,10 @@
 import { AlunoDAO } from '../dao/AlunoDAO.js';
 import { UsuarioDAO } from '../dao/UsuarioDAO.js';
 import { InstituicaoEnsinoDAO } from '../dao/InstituicaoEnsinoDAO.js';
+import { UsuarioCredenciaisService } from './UsuarioCredenciaisService.js';
 import { criarErro } from '../utils/erros.js';
 import { normalizarCpf, somenteDigitos } from '../utils/documentos.js';
-import { emailValido, textoObrigatorio } from '../utils/validacao.js';
+import { textoObrigatorio } from '../utils/validacao.js';
 
 const REGEX_RG = /^[A-Z]{2}-\d{2}\.\d{3}\.\d{3}$/;
 const MSG_RG = 'O RG deve seguir o formato XX-99.999.999 (duas letras maiúsculas e oito números).';
@@ -12,11 +13,13 @@ export class AlunoService {
   constructor(
     alunoDAO = new AlunoDAO(),
     usuarioDAO = new UsuarioDAO(),
-    instituicaoDAO = new InstituicaoEnsinoDAO()
+    instituicaoDAO = new InstituicaoEnsinoDAO(),
+    credenciaisService = new UsuarioCredenciaisService(usuarioDAO)
   ) {
     this.alunoDAO = alunoDAO;
     this.usuarioDAO = usuarioDAO;
     this.instituicaoDAO = instituicaoDAO;
+    this.credenciaisService = credenciaisService;
   }
 
   /**
@@ -35,17 +38,16 @@ export class AlunoService {
   }
 
   cadastrarAluno(dados = {}) {
-    const camposObrigatorios = [
-      { campo: 'nome', label: 'Nome' },
-      { campo: 'email', label: 'E-mail' },
-      { campo: 'login', label: 'Login' },
+    const base = this.credenciaisService.validarParaCadastro(dados, { labelNome: 'Nome' });
+
+    const camposEspecificos = [
       { campo: 'cpf', label: 'CPF' },
       { campo: 'endereco', label: 'Endereço' },
       { campo: 'curso', label: 'Curso' },
     ];
 
     const limpos = {};
-    for (const { campo, label } of camposObrigatorios) {
+    for (const { campo, label } of camposEspecificos) {
       const texto = textoObrigatorio(dados[campo]);
       if (texto === null) {
         throw criarErro(400, `O campo "${label}" é obrigatório.`);
@@ -53,15 +55,8 @@ export class AlunoService {
       limpos[campo] = texto;
     }
 
-    if (typeof dados.senha !== 'string' || dados.senha.trim() === '') {
-      throw criarErro(400, 'O campo "Senha" é obrigatório.');
-    }
     if (dados.instituicaoId === undefined || dados.instituicaoId === null || String(dados.instituicaoId).trim() === '') {
       throw criarErro(400, 'O campo "Instituição de Ensino" é obrigatório.');
-    }
-
-    if (!emailValido(limpos.email)) {
-      throw criarErro(400, 'E-mail inválido.');
     }
 
     const cpf = normalizarCpf(limpos.cpf);
@@ -85,23 +80,17 @@ export class AlunoService {
       throw criarErro(400, 'A Instituição de Ensino selecionada não está cadastrada.');
     }
 
-    if (this.usuarioDAO.findByEmail(limpos.email)) {
-      throw criarErro(409, 'Já existe um usuário cadastrado com este e-mail.');
-    }
-
-    if (this.usuarioDAO.findByLogin(limpos.login)) {
-      throw criarErro(409, 'Este login já está em uso por outro usuário.');
-    }
+    this.credenciaisService.garantirUnicidade({ email: base.email, login: base.login });
 
     if (this.alunoDAO.findByCpf(cpf)) {
       throw criarErro(409, 'Já existe um aluno cadastrado com este CPF.');
     }
 
     return this.alunoDAO.create({
-      nome: limpos.nome,
-      email: limpos.email,
-      login: limpos.login,
-      senha: dados.senha,
+      nome: base.nome,
+      email: base.email,
+      login: base.login,
+      senha: base.senha,
       cpf,
       rg: rgLimpo,
       endereco: limpos.endereco,
@@ -112,12 +101,10 @@ export class AlunoService {
 
   atualizarAluno(id, dados = {}) {
     const alunoAtual = this.buscarPorId(id);
+    const base = this.credenciaisService.validarParaAtualizacao(alunoAtual, dados, { labelNome: 'Nome' });
 
     const textos = {};
     for (const [campo, label] of [
-      ['nome', 'Nome'],
-      ['email', 'E-mail'],
-      ['login', 'Login'],
       ['endereco', 'Endereço'],
       ['curso', 'Curso'],
     ]) {
@@ -128,18 +115,6 @@ export class AlunoService {
         }
         textos[campo] = texto;
       }
-    }
-
-    if (textos.email !== undefined && textos.email !== alunoAtual.email && !emailValido(textos.email)) {
-      throw criarErro(400, 'E-mail inválido.');
-    }
-
-    let senha;
-    if (dados.senha !== undefined && dados.senha !== null && dados.senha !== '') {
-      if (typeof dados.senha !== 'string') {
-        throw criarErro(400, 'A senha deve ser um texto.');
-      }
-      senha = dados.senha.trim() !== '' ? dados.senha : undefined;
     }
 
     let rg;
@@ -163,19 +138,11 @@ export class AlunoService {
       instituicaoId = instituicao.id;
     }
 
-    if (textos.email !== undefined && textos.email !== alunoAtual.email) {
-      const outroEmail = this.usuarioDAO.findByEmail(textos.email);
-      if (outroEmail && outroEmail.id !== alunoAtual.id) {
-        throw criarErro(409, 'Já existe outro usuário cadastrado com este e-mail.');
-      }
-    }
-
-    if (textos.login !== undefined && textos.login !== alunoAtual.login) {
-      const outroLogin = this.usuarioDAO.findByLogin(textos.login);
-      if (outroLogin && outroLogin.id !== alunoAtual.id) {
-        throw criarErro(409, 'Este login já está em uso por outro usuário.');
-      }
-    }
+    this.credenciaisService.garantirUnicidade({
+      email: base.email !== undefined && base.email !== alunoAtual.email ? base.email : undefined,
+      login: base.login !== undefined && base.login !== alunoAtual.login ? base.login : undefined,
+      ignorarUsuarioId: alunoAtual.id,
+    });
 
     // CPF só é validado/alterado se mudou (contas seed antigas continuam editáveis).
     let cpf;
@@ -196,10 +163,10 @@ export class AlunoService {
     }
 
     return this.alunoDAO.update(alunoAtual.id, {
-      nome: textos.nome,
-      email: textos.email,
-      login: textos.login,
-      senha,
+      nome: base.nome,
+      email: base.email,
+      login: base.login,
+      senha: base.senha,
       cpf,
       rg,
       endereco: textos.endereco,
